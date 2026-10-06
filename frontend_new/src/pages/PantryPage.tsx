@@ -3,47 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { sounds } from '../services/audio';
 import type { PantryItem, CategoryType } from '../types';
+import { getIngredientEmoji } from '../services/mockData';
 import {
   Plus,
   Trash2,
   Edit2,
   AlertTriangle,
   Refrigerator,
+  Sparkles,
   Check,
   X,
-  Camera,
 } from 'lucide-react';
 
-const CATEGORIES: Array<{ label: string; value: string }> = [
-  { label: 'All', value: 'All' },
-  { label: 'Produce', value: 'Produce' },
-  { label: 'Dairy', value: 'Dairy' },
-  { label: 'Pantry Staples', value: 'Pantry Staples' },
-  { label: 'Meat & Seafood', value: 'Meat/Seafood' },
-  { label: 'Bakery', value: 'Bakery' },
-];
-
-function getExpiryDisplay(expiryDate: string | undefined): {
-  label: string;
-  cls: string;
-} {
-  if (!expiryDate) return { label: '—', cls: '' };
-
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  const exp = new Date(expiryDate);
-  exp.setHours(0, 0, 0, 0);
-  const diffDays = Math.round((exp.getTime() - now.getTime()) / (1000 * 3600 * 24));
-
-  if (diffDays < 0) return { label: 'Expired', cls: 'danger' };
-  if (diffDays === 0) return { label: 'Today', cls: 'danger' };
-  if (diffDays === 1) return { label: 'Tomorrow', cls: 'warning' };
-  if (diffDays <= 7) return { label: `In ${diffDays} days`, cls: 'warning' };
-
-  // Format date: "12 Oct"
-  const formatted = exp.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-  return { label: formatted, cls: '' };
-}
+const CATEGORIES = ['All', 'Produce', 'Dairy', 'Pantry Staples', 'Meat/Seafood', 'Bakery'];
 
 export const PantryPage: React.FC = () => {
   const navigate = useNavigate();
@@ -58,21 +30,25 @@ export const PantryPage: React.FC = () => {
   const [editingItem, setEditingItem] = useState<PantryItem | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
+  // Form states for Add/Edit
   const [itemName, setItemName] = useState('');
   const [itemQty, setItemQty] = useState(1);
   const [itemUnit, setItemUnit] = useState('pcs');
   const [itemCategory, setItemCategory] = useState<CategoryType>('Produce');
   const [itemExpiry, setItemExpiry] = useState('');
 
-  // Items expiring within 7 days
+  // Expiring items calculation (within 48 hours)
   const expiringItems = useMemo(() => {
     return pantryStock.filter((item) => {
       if (!item.expiryDate) return false;
-      const diffDays = (new Date(item.expiryDate).getTime() - Date.now()) / (1000 * 3600 * 24);
-      return diffDays <= 7 && diffDays >= -1;
+      const expiryTime = new Date(item.expiryDate).getTime();
+      const now = Date.now();
+      const diffHours = (expiryTime - now) / (1000 * 3600);
+      return diffHours <= 48 && diffHours >= -24;
     });
   }, [pantryStock]);
 
+  // Filtered inventory list
   const filteredStock = useMemo(() => {
     if (selectedCategory === 'All') return pantryStock;
     return pantryStock.filter((item) =>
@@ -100,16 +76,11 @@ export const PantryPage: React.FC = () => {
     setItemExpiry(item.expiryDate || '');
   };
 
-  const closeModal = () => {
-    setIsAddModalOpen(false);
-    setEditingItem(null);
-  };
-
   const handleSaveItem = (e: React.FormEvent) => {
     e.preventDefault();
     if (!itemName.trim()) return;
-    sounds.playTap();
 
+    sounds.playTap();
     if (editingItem) {
       updatePantryItem(editingItem.id, {
         name: itemName.trim(),
@@ -117,6 +88,7 @@ export const PantryPage: React.FC = () => {
         unit: itemUnit,
         category: itemCategory,
         expiryDate: itemExpiry || undefined,
+        emoji: getIngredientEmoji(itemName.trim()),
       });
       setEditingItem(null);
     } else {
@@ -126,313 +98,376 @@ export const PantryPage: React.FC = () => {
         unit: itemUnit,
         category: itemCategory,
         expiryDate: itemExpiry || undefined,
+        emoji: getIngredientEmoji(itemName.trim()),
       });
       setIsAddModalOpen(false);
     }
   };
 
-  const getCategoryCount = (value: string) => {
-    if (value === 'All') return pantryStock.length;
-    return pantryStock.filter((i) =>
-      i.category.toLowerCase().includes(value.toLowerCase())
-    ).length;
-  };
-
   return (
     <div className="content-container">
-      <div style={{ paddingBottom: 'var(--space-7)' }}>
-        {/* Page header */}
-        <div
-          className="page-header"
-          style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 'var(--space-3)',
-          }}
-        >
-          <div>
-            <h1 className="page-title">Pantry</h1>
-            <p className="page-subtitle">{pantryStock.length} items tracked</p>
-          </div>
-          <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', paddingTop: 'var(--space-6)' }}>
-            <button
-              className="btn btn-secondary"
-              onClick={openAddModal}
-              id="btn-add-pantry-item"
-            >
-              <Plus size={16} />
-              <span>Add item</span>
-            </button>
-            <button
-              id="btn-scan-fridge"
-              className="btn btn-primary"
-              onClick={() => {
-                sounds.playTap();
-                navigate('/');
-              }}
-            >
-              <Camera size={16} />
-              <span>Scan fridge</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Expiry notice bar — warning tint, not red */}
-        {expiringItems.length > 0 && (
-          <div className="expiry-notice-bar" role="alert" aria-live="polite">
-            <AlertTriangle size={16} aria-hidden="true" />
-            <span>
-              {expiringItems.length === 1
-                ? `${expiringItems[0].name} is expiring soon`
-                : `${expiringItems.length} items expiring soon — ${expiringItems.slice(0, 3).map((i) => i.name).join(', ')}`}
-            </span>
-            <button
-              className="expiry-notice-link"
-              onClick={() => {
-                sounds.playTap();
-                navigate('/recipes');
-              }}
-              aria-label="See recipes that use expiring items"
-            >
-              See recipes
-            </button>
-          </div>
-        )}
-
-        {/* Category tabs */}
-        <div
-          className="tab-bar"
-          role="tablist"
-          aria-label="Filter by category"
-          style={{ marginBottom: 'var(--space-4)' }}
-        >
-          {CATEGORIES.map((cat) => {
-            const count = getCategoryCount(cat.value);
-            return (
+      <div id="pantry-page-container">
+        {/* 3.5 Header */}
+        <header id="pantry-dashboard-header">
+          <div id="pantry-title-row">
+            <h1>My Pantry Inventory</h1>
+            <div style={{ display: 'flex', gap: '8px' }}>
               <button
-                key={cat.value}
-                className={`tab-item ${selectedCategory === cat.value ? 'active' : ''}`}
-                onClick={() => {
-                  sounds.playTap();
-                  setSelectedCategory(cat.value);
-                }}
-                role="tab"
-                aria-selected={selectedCategory === cat.value}
+                className="btn-secondary"
+                style={{ padding: '8px 14px', fontSize: '13px' }}
+                onClick={openAddModal}
               >
-                {cat.label}
-                <span className="tab-count">{count}</span>
+                <Plus size={16} />
+                <span>Add Item</span>
               </button>
-            );
-          })}
-        </div>
-
-        {/* Pantry list */}
-        <main aria-label="Pantry inventory">
-          {filteredStock.length > 0 ? (
-            <div className="pantry-list">
-              {filteredStock.map((item) => {
-                const expiry = getExpiryDisplay(item.expiryDate);
-
-                return (
-                  <div key={item.id} className="pantry-row">
-                    {/* Item info */}
-                    <div>
-                      <p className="pantry-item-name">{item.name}</p>
-                      <p className="pantry-item-category">{item.category}</p>
-                    </div>
-
-                    {/* Quantity + Expiry */}
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
-                      <span className="pantry-item-qty">{item.quantity} {item.unit}</span>
-                      <span className={`pantry-item-expiry ${expiry.cls}`}>{expiry.label}</span>
-                    </div>
-
-                    {/* Row actions */}
-                    <div className="pantry-row-actions">
-                      <button
-                        className="pantry-row-btn"
-                        onClick={() => openEditModal(item)}
-                        title={`Edit ${item.name}`}
-                        aria-label={`Edit ${item.name}`}
-                      >
-                        <Edit2 size={14} />
-                      </button>
-                      <button
-                        className="pantry-row-btn danger"
-                        onClick={() => {
-                          sounds.playTap();
-                          deletePantryItem(item.id);
-                        }}
-                        title={`Delete ${item.name}`}
-                        aria-label={`Delete ${item.name}`}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="empty-state">
-              <div className="empty-state-icon">
-                <Refrigerator size={40} aria-hidden="true" />
-              </div>
-              <p className="empty-state-title">Your pantry is empty</p>
-              <p className="empty-state-desc">
-                Scan your fridge or add items manually to start tracking ingredients.
-              </p>
               <button
-                className="btn btn-primary"
+                id="btn-open-scan-page"
+                className="btn-accent"
                 onClick={() => {
                   sounds.playTap();
                   navigate('/');
                 }}
               >
-                <Camera size={16} />
-                <span>Scan your fridge</span>
+                + Scan Fridge
+              </button>
+            </div>
+          </div>
+
+          {/* Section: Alert Box for Expiring Stock */}
+          {expiringItems.length > 0 && (
+            <section id="expiry-warning-banner" className="banner-amber">
+              <div id="warning-icon-group">
+                <AlertTriangle size={28} color="#E05A47" />
+              </div>
+              <div id="warning-text-content">
+                <h4>
+                  {expiringItems.length}{' '}
+                  {expiringItems.length === 1 ? 'Item' : 'Items'} Expiring Soon
+                </h4>
+                <p>
+                  {expiringItems.map((i) => i.name).slice(0, 3).join(', ')} expire within 48 hours.
+                </p>
+              </div>
+              <button
+                id="btn-cook-expiring-items"
+                onClick={() => {
+                  sounds.playTap();
+                  navigate('/recipes');
+                }}
+              >
+                Cook These Now
+              </button>
+            </section>
+          )}
+
+          {/* Category Filter Pills */}
+          <div id="pantry-category-pills" role="tablist">
+            {CATEGORIES.map((cat) => {
+              const count =
+                cat === 'All'
+                  ? pantryStock.length
+                  : pantryStock.filter((i) => i.category.toLowerCase().includes(cat.toLowerCase())).length;
+
+              return (
+                <button
+                  key={cat}
+                  className={`pill-category ${selectedCategory === cat ? 'active' : ''}`}
+                  onClick={() => {
+                    sounds.playTap();
+                    setSelectedCategory(cat);
+                  }}
+                  role="tab"
+                  aria-selected={selectedCategory === cat}
+                >
+                  {cat} ({count})
+                </button>
+              );
+            })}
+          </div>
+        </header>
+
+        {/* 3.5 Inventory List */}
+        <main id="pantry-inventory-list">
+          {filteredStock.length > 0 ? (
+            filteredStock.map((item) => {
+              const isExpiring = expiringItems.some((e) => e.id === item.id);
+
+              return (
+                <div
+                  key={item.id}
+                  className="pantry-item-card"
+                  style={{
+                    borderLeft: isExpiring ? '4px solid #E05A47' : undefined,
+                  }}
+                >
+                  <span className="pantry-item-emoji">
+                    {item.emoji || getIngredientEmoji(item.name)}
+                  </span>
+
+                  <div className="pantry-item-info">
+                    <h4 className="item-name">
+                      {item.name}
+                      {isExpiring && (
+                        <span
+                          style={{
+                            marginLeft: '8px',
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            color: '#E05A47',
+                            backgroundColor: '#FEF2F2',
+                            padding: '2px 6px',
+                            borderRadius: '9999px',
+                          }}
+                        >
+                          Expiring Soon
+                        </span>
+                      )}
+                    </h4>
+                    <span className="item-meta">
+                      {item.addedAt || 'In stock'} • Category: {item.category}
+                      {item.expiryDate && ` • Exp: ${item.expiryDate}`}
+                    </span>
+                  </div>
+
+                  <div className="pantry-item-qty">
+                    <span className="qty-label">
+                      {item.quantity} {item.unit}
+                    </span>
+                  </div>
+
+                  <div className="pantry-item-actions">
+                    <button
+                      className="btn-edit-stock"
+                      onClick={() => openEditModal(item)}
+                      title={`Edit ${item.name}`}
+                      aria-label={`Edit ${item.name}`}
+                    >
+                      <Edit2 size={14} />
+                    </button>
+                    <button
+                      className="btn-delete-stock"
+                      onClick={() => {
+                        sounds.playTap();
+                        deletePantryItem(item.id);
+                      }}
+                      title={`Delete ${item.name}`}
+                      aria-label={`Delete ${item.name}`}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            /* Section 5.2: Empty Pantry View */
+            <div className="empty-state-card" style={{ gridColumn: '1 / -1' }}>
+              <div className="empty-state-icon">
+                <Refrigerator size={56} color="#3A7D44" />
+              </div>
+              <h3 style={{ fontSize: '18px', fontWeight: 800 }}>
+                Your digital pantry is currently empty.
+              </h3>
+              <p style={{ color: 'var(--color-text-muted)', maxWidth: '360px', fontSize: '14px' }}>
+                Scan your refrigerator or kitchen shelves to instantly track ingredients, minimize food waste, and receive personalized recipes.
+              </p>
+              <button
+                className="btn-primary"
+                onClick={() => {
+                  sounds.playTap();
+                  navigate('/');
+                }}
+              >
+                <Sparkles size={16} />
+                <span>Take a Photo of Your Fridge</span>
               </button>
             </div>
           )}
         </main>
-      </div>
 
-      {/* Add / Edit modal */}
-      {(isAddModalOpen || editingItem) && (
-        <div
-          className="modal-overlay"
-          onClick={closeModal}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="modal-title"
-        >
+        {/* Add / Edit Item Modal */}
+        {(isAddModalOpen || editingItem) && (
           <div
-            className="modal-panel"
-            onClick={(e) => e.stopPropagation()}
+            className="modal-overlay"
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(15, 23, 42, 0.7)',
+              backdropFilter: 'blur(6px)',
+              zIndex: 65,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '16px',
+            }}
+            onClick={() => {
+              setIsAddModalOpen(false);
+              setEditingItem(null);
+            }}
           >
-            <div className="modal-header">
-              <h2 className="modal-title" id="modal-title">
-                {editingItem ? 'Edit item' : 'Add item'}
-              </h2>
-              <button
-                className="btn btn-ghost btn-icon"
-                onClick={closeModal}
-                aria-label="Close dialog"
+            <div
+              style={{
+                backgroundColor: 'var(--color-surface)',
+                borderRadius: 'var(--radius-xl)',
+                maxWidth: '460px',
+                width: '100%',
+                padding: '24px',
+                boxShadow: 'var(--shadow-lg)',
+                border: '1px solid var(--color-border)',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '20px',
+                }}
               >
-                <X size={16} />
-              </button>
-            </div>
+                <h3 style={{ fontSize: '18px', fontWeight: 800 }}>
+                  {editingItem ? 'Edit Pantry Item' : 'Add New Pantry Item'}
+                </h3>
+                <button
+                  onClick={() => {
+                    sounds.playTap();
+                    setIsAddModalOpen(false);
+                    setEditingItem(null);
+                  }}
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: 'var(--radius-pill)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: 'var(--color-surface-alt)',
+                  }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
 
-            <form onSubmit={handleSaveItem}>
-              <div className="modal-body">
+              <form onSubmit={handleSaveItem} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div>
-                  <label className="input-label" htmlFor="item-name-input">
-                    Name
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '6px' }}>
+                    Ingredient Name
                   </label>
                   <input
-                    id="item-name-input"
                     type="text"
                     required
-                    autoFocus
-                    className="input-field"
                     value={itemName}
                     onChange={(e) => setItemName(e.target.value)}
-                    placeholder="e.g. Baby spinach"
+                    placeholder="e.g. Baby Spinach, Whole Milk"
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--color-border)',
+                      backgroundColor: 'var(--color-input-bg)',
+                    }}
                   />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
-                    <label className="input-label" htmlFor="item-qty-input">
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '6px' }}>
                       Quantity
                     </label>
                     <input
-                      id="item-qty-input"
                       type="number"
-                      min="0"
-                      step="0.5"
+                      min="1"
                       required
-                      className="input-field"
                       value={itemQty}
-                      onChange={(e) => setItemQty(parseFloat(e.target.value) || 1)}
+                      onChange={(e) => setItemQty(parseInt(e.target.value) || 1)}
+                      style={{
+                        width: '100%',
+                        padding: '10px 14px',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--color-border)',
+                        backgroundColor: 'var(--color-input-bg)',
+                      }}
                     />
                   </div>
                   <div>
-                    <label className="input-label" htmlFor="item-unit-select">
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '6px' }}>
                       Unit
                     </label>
                     <select
-                      id="item-unit-select"
-                      className="input-field select-field"
                       value={itemUnit}
                       onChange={(e) => setItemUnit(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '10px 14px',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--color-border)',
+                        backgroundColor: 'var(--color-input-bg)',
+                      }}
                     >
                       <option value="pcs">pcs</option>
-                      <option value="g">g</option>
-                      <option value="kg">kg</option>
-                      <option value="ml">ml</option>
-                      <option value="L">L</option>
-                      <option value="cups">cups</option>
-                      <option value="tbsp">tbsp</option>
-                      <option value="tsp">tsp</option>
-                      <option value="slices">slices</option>
+                      <option value="grams">grams</option>
                       <option value="heads">heads</option>
+                      <option value="ml">ml</option>
+                      <option value="slices">slices</option>
+                      <option value="tbsp">tbsp</option>
                     </select>
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
-                    <label className="input-label" htmlFor="item-category-select">
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '6px' }}>
                       Category
                     </label>
                     <select
-                      id="item-category-select"
-                      className="input-field select-field"
                       value={itemCategory}
                       onChange={(e) => setItemCategory(e.target.value as CategoryType)}
+                      style={{
+                        width: '100%',
+                        padding: '10px 14px',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--color-border)',
+                        backgroundColor: 'var(--color-input-bg)',
+                      }}
                     >
                       <option value="Produce">Produce</option>
                       <option value="Dairy">Dairy</option>
                       <option value="Pantry Staples">Pantry Staples</option>
-                      <option value="Meat/Seafood">Meat & Seafood</option>
+                      <option value="Meat/Seafood">Meat/Seafood</option>
                       <option value="Bakery">Bakery</option>
                     </select>
                   </div>
                   <div>
-                    <label className="input-label" htmlFor="item-expiry-input">
-                      Expiry date
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '6px' }}>
+                      Expiry Date
                     </label>
                     <input
-                      id="item-expiry-input"
                       type="date"
-                      className="input-field"
                       value={itemExpiry}
                       onChange={(e) => setItemExpiry(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '10px 14px',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--color-border)',
+                        backgroundColor: 'var(--color-input-bg)',
+                      }}
                     />
                   </div>
                 </div>
-              </div>
 
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={closeModal}
-                >
-                  Cancel
+                <button type="submit" className="btn-primary-block" style={{ marginTop: '8px' }}>
+                  <Check size={18} />
+                  <span>{editingItem ? 'Save Changes' : 'Add to Inventory'}</span>
                 </button>
-                <button type="submit" className="btn btn-primary">
-                  <Check size={16} />
-                  <span>{editingItem ? 'Save changes' : 'Add to pantry'}</span>
-                </button>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

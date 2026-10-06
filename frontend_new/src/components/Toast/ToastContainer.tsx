@@ -8,7 +8,7 @@ export const ToastContainer: React.FC = () => {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="toast-container" aria-live="polite" aria-label="Notifications">
+    <div className="toast-container" aria-live="polite">
       {toasts.map((toast) => {
         let Icon = Info;
         if (toast.type === 'success') Icon = CheckCircle2;
@@ -18,13 +18,11 @@ export const ToastContainer: React.FC = () => {
         return (
           <div
             key={toast.id}
-            className="toast-item"
+            className={`toast-toast-item ${toast.type}`}
             onClick={() => removeToast(toast.id)}
-            role="status"
-            style={{ cursor: 'pointer' }}
-            title="Click to dismiss"
+            role="alert"
           >
-            <Icon size={16} aria-hidden="true" />
+            <Icon size={18} />
             <span>{toast.message}</span>
           </div>
         );

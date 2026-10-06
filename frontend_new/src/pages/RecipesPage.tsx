@@ -7,21 +7,14 @@ import { FilterDrawerModal } from '../components/FilterDrawer/FilterDrawerModal'
 import {
   SlidersHorizontal,
   Clock,
+  Flame,
   ChefHat,
+  Info,
   Heart,
   Soup,
-  Search,
-  Info,
 } from 'lucide-react';
 
-const FILTER_CHIPS = ['All', 'Keto', 'Vegan', 'Gluten-Free', 'Under 20 mins'];
-
-function formatIngredients(ingredients: string[], maxShow = 4): string {
-  if (ingredients.length <= maxShow) return ingredients.join(', ');
-  const shown = ingredients.slice(0, maxShow);
-  const remaining = ingredients.length - maxShow;
-  return `${shown.join(', ')} +${remaining}`;
-}
+const FILTER_CHIPS = ['All', 'Keto', 'Vegan', 'Gluten-Free', 'Under 20 Mins'];
 
 export const RecipesPage: React.FC = () => {
   const navigate = useNavigate();
@@ -59,19 +52,24 @@ export const RecipesPage: React.FC = () => {
       difficulty: undefined,
       spiceLevel: undefined,
     });
-    setSelectedChip('All');
-    setSearchQuery('');
   };
 
+  // Filter recipes based on tab, chip, search, and drawer filters
   const filteredRecipes = useMemo(() => {
     return recipes.filter((recipe) => {
+      // 1. Tab Match
       if (recipe.matchType !== activeTab) return false;
 
-      if (selectedChip === 'Under 20 mins' && recipe.cookTimeMinutes > 20) return false;
-      else if (selectedChip !== 'All' && selectedChip !== 'Under 20 mins') {
-        if (!recipe.dietaryTags.some((t) => t.toLowerCase() === selectedChip.toLowerCase())) return false;
+      // 2. Chip Filter
+      if (selectedChip === 'Under 20 Mins' && recipe.cookTimeMinutes > 20) {
+        return false;
+      } else if (selectedChip !== 'All' && selectedChip !== 'Under 20 Mins') {
+        if (!recipe.dietaryTags.some((t) => t.toLowerCase() === selectedChip.toLowerCase())) {
+          return false;
+        }
       }
 
+      // 3. Search Query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const matchesTitle = recipe.title.toLowerCase().includes(q);
@@ -81,9 +79,16 @@ export const RecipesPage: React.FC = () => {
         if (!matchesTitle && !matchesIngredient) return false;
       }
 
-      if (filterState.maxCookTime && recipe.cookTimeMinutes > filterState.maxCookTime) return false;
-      if (filterState.difficulty && recipe.difficulty !== filterState.difficulty) return false;
-      if (filterState.spiceLevel && recipe.spiceLevel !== filterState.spiceLevel) return false;
+      // 4. Advanced Drawer Filters
+      if (filterState.maxCookTime && recipe.cookTimeMinutes > filterState.maxCookTime) {
+        return false;
+      }
+      if (filterState.difficulty && recipe.difficulty !== filterState.difficulty) {
+        return false;
+      }
+      if (filterState.spiceLevel && recipe.spiceLevel !== filterState.spiceLevel) {
+        return false;
+      }
 
       return true;
     });
@@ -92,251 +97,221 @@ export const RecipesPage: React.FC = () => {
   const zeroWasteCount = recipes.filter((r) => r.matchType === 'zero-waste').length;
   const quickRunCount = recipes.filter((r) => r.matchType === 'quick-run').length;
 
-  const handleCardClick = (recipe: Recipe) => {
+  const handleStartCooking = (recipe: Recipe) => {
     sounds.playTap();
     setActiveRecipe(recipe);
     navigate(`/cook/${recipe.id}`);
   };
 
-  const handleFavorite = (e: React.MouseEvent, recipeId: string) => {
-    e.stopPropagation();
-    sounds.playTap();
-    toggleBookmark(recipeId);
-  };
-
   return (
     <div className="content-container">
-      <div style={{ paddingBottom: 'var(--space-7)' }}>
-        {/* Page header */}
-        <div className="page-header">
-          <h1 className="page-title">Recipes</h1>
-        </div>
-
-        {/* Search + filter button row */}
-        <div
-          style={{
-            display: 'flex',
-            gap: 'var(--space-2)',
-            marginBottom: 'var(--space-3)',
-          }}
-        >
-          <div className="search-wrapper" style={{ flex: 1 }}>
-            <Search size={16} className="search-icon" />
+      <div id="recipes-page-container">
+        {/* 3.3 Dashboard Header */}
+        <header id="dashboard-header">
+          {/* Top Search Row */}
+          <div id="top-search-row">
             <input
               type="search"
               id="recipe-search-input"
-              className="search-input"
-              placeholder="Search recipes or ingredients"
+              placeholder="Search recipes or ingredients..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               aria-label="Search recipes"
             />
-          </div>
-          <button
-            id="btn-open-filter-drawer"
-            className="btn btn-secondary btn-icon"
-            title="Open filters"
-            aria-label="Open filter drawer"
-            onClick={() => {
-              sounds.playTap();
-              setIsFilterModalOpen(true);
-            }}
-          >
-            <SlidersHorizontal size={16} />
-          </button>
-        </div>
-
-        {/* Filter chips */}
-        <div
-          className="filter-chips-row"
-          role="group"
-          aria-label="Dietary filters"
-          style={{ marginBottom: 'var(--space-4)' }}
-        >
-          {FILTER_CHIPS.map((chip) => (
             <button
-              key={chip}
-              className={`chip-filter ${selectedChip === chip ? 'active' : ''}`}
+              id="btn-open-filter-drawer"
+              title="Open filters"
+              aria-label="Open filter drawer"
               onClick={() => {
                 sounds.playTap();
-                setSelectedChip(chip);
+                setIsFilterModalOpen(true);
               }}
-              aria-pressed={selectedChip === chip}
             >
-              {chip}
+              <SlidersHorizontal size={20} className="icon-filter" />
             </button>
-          ))}
-        </div>
+          </div>
 
-        {/* Segmented control */}
-        <div
-          className="segmented-control"
-          role="tablist"
-          aria-label="Recipe match type"
-          style={{ marginBottom: 'var(--space-5)' }}
-        >
-          <button
-            id="tab-zero-waste"
-            className={`seg-btn ${activeTab === 'zero-waste' ? 'active' : ''}`}
-            onClick={() => {
-              sounds.playTap();
-              setActiveTab('zero-waste');
-            }}
-            role="tab"
-            aria-selected={activeTab === 'zero-waste'}
-          >
-            Zero-waste
-            <span className="seg-count">{zeroWasteCount}</span>
-          </button>
+          {/* Dietary Filter Quick Chips */}
+          <div id="horizontal-filter-scroll" role="tablist" aria-label="Dietary filters">
+            {FILTER_CHIPS.map((chip) => (
+              <button
+                key={chip}
+                className={`chip-filter ${selectedChip === chip ? 'active' : ''}`}
+                onClick={() => {
+                  sounds.playTap();
+                  setSelectedChip(chip);
+                }}
+              >
+                {chip}
+              </button>
+            ))}
+          </div>
 
-          <button
-            id="tab-quick-run"
-            className={`seg-btn ${activeTab === 'quick-run' ? 'active' : ''}`}
-            onClick={() => {
-              sounds.playTap();
-              setActiveTab('quick-run');
-            }}
-            role="tab"
-            aria-selected={activeTab === 'quick-run'}
-          >
-            Quick run
-            <span className="seg-count">{quickRunCount}</span>
-          </button>
-        </div>
+          {/* Segmented Tab Bar */}
+          <div id="segmented-tab-container" role="tablist">
+            <button
+              id="tab-zero-waste"
+              className={`tab-btn ${activeTab === 'zero-waste' ? 'active' : ''}`}
+              onClick={() => {
+                sounds.playTap();
+                setActiveTab('zero-waste');
+              }}
+              role="tab"
+              aria-selected={activeTab === 'zero-waste'}
+            >
+              Zero-Waste <span className="tab-badge-count">{zeroWasteCount} (100% Match)</span>
+            </button>
 
-        {/* Recipe grid */}
-        <main id="recipe-card-grid" aria-label="Recipe list">
+            <button
+              id="tab-quick-run"
+              className={`tab-btn ${activeTab === 'quick-run' ? 'active' : ''}`}
+              onClick={() => {
+                sounds.playTap();
+                setActiveTab('quick-run');
+              }}
+              role="tab"
+              aria-selected={activeTab === 'quick-run'}
+            >
+              Quick Run <span className="tab-badge-count">{quickRunCount} (90%+ Match)</span>
+            </button>
+          </div>
+        </header>
+
+        {/* Recipe Card Grid */}
+        <main id="recipe-card-grid">
           {filteredRecipes.length > 0 ? (
             filteredRecipes.map((recipe) => {
               const isBookmarked = bookmarkedRecipeIds.includes(recipe.id);
-              const isFullMatch = recipe.matchScore === 100;
 
               return (
-                <article
-                  key={recipe.id}
-                  className="recipe-card"
-                  onClick={() => handleCardClick(recipe)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      handleCardClick(recipe);
-                    }
-                  }}
-                  aria-label={`${recipe.title} — ${recipe.cookTimeMinutes} minutes, ${recipe.difficulty}`}
-                >
-                  {/* Card image */}
+                <article key={recipe.id} className="recipe-card">
                   <div className="card-image-wrapper">
-                    {recipe.imageUrl ? (
-                      <img
-                        className="recipe-cover-img"
-                        src={recipe.imageUrl}
-                        alt={recipe.title}
-                        loading="lazy"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = 'none';
-                        }}
-                      />
-                    ) : (
-                      <div className="card-img-fallback" aria-hidden="true">
-                        <Soup size={36} />
-                        <span>{recipe.dietaryTags[0] || 'Recipe'}</span>
-                      </div>
-                    )}
+                    <img
+                      className="recipe-cover-img"
+                      src={recipe.imageUrl}
+                      alt={recipe.title}
+                      loading="lazy"
+                    />
 
-                    {/* Favorite button */}
+                    {/* Match Score Badge */}
+                    <span
+                      className={`badge-match-score ${
+                        recipe.matchScore === 100 ? 'percent-100' : 'percent-90'
+                      }`}
+                    >
+                      {recipe.matchScore === 100 ? '100% Pantry Match' : `${recipe.matchScore}% Match`}
+                    </span>
+
+                    {/* Bookmark Button */}
                     <button
-                      className={`btn-card-favorite ${isBookmarked ? 'favorited' : ''}`}
-                      onClick={(e) => handleFavorite(e, recipe.id)}
-                      aria-label={isBookmarked ? 'Remove from favorites' : 'Add to favorites'}
-                      aria-pressed={isBookmarked}
+                      className={`btn-bookmark-recipe ${isBookmarked ? 'active' : ''}`}
+                      onClick={() => {
+                        sounds.playTap();
+                        toggleBookmark(recipe.id);
+                      }}
+                      title={isBookmarked ? 'Remove bookmark' : 'Bookmark recipe'}
+                      aria-label="Bookmark recipe"
                     >
                       <Heart
-                        size={16}
-                        fill={isBookmarked ? 'currentColor' : 'none'}
-                        strokeWidth={2}
+                        size={18}
+                        fill={isBookmarked ? '#E05A47' : 'none'}
+                        color={isBookmarked ? '#E05A47' : 'currentColor'}
                       />
                     </button>
                   </div>
 
-                  {/* Card body */}
-                  <div className="card-body">
-                    <h2 className="card-title">{recipe.title}</h2>
+                  <div className="card-content-body">
+                    <h3 className="recipe-title">{recipe.title}</h3>
 
-                    {/* Meta row: time · difficulty */}
-                    <div className="card-meta-row">
-                      <Clock size={13} aria-hidden="true" />
-                      <span>{recipe.cookTimeMinutes} min</span>
-                      <span className="card-meta-dot" aria-hidden="true" />
-                      <ChefHat size={13} aria-hidden="true" />
-                      <span>{recipe.difficulty}</span>
+                    <div className="recipe-meta-row">
+                      <span className="meta-item cook-time">
+                        <Clock size={15} /> {recipe.cookTimeMinutes} mins
+                      </span>
+                      <span className="meta-item spice-level">
+                        <Flame size={15} /> {recipe.spiceLevel}
+                      </span>
+                      <span className="meta-item difficulty">
+                        <ChefHat size={15} /> {recipe.difficulty}
+                      </span>
                     </div>
 
-                    {/* Match line */}
-                    <div className="card-match-line">
-                      {isFullMatch ? (
-                        <span className="badge-pantry">In your pantry</span>
-                      ) : (
-                        <span>Uses {recipe.utilizedIngredients.length} of your ingredients</span>
-                      )}
+                    <div className="utilized-ingredients-preview">
+                      <span className="label">Uses from pantry:</span>
+                      <div className="pill-group">
+                        {recipe.utilizedIngredients.map((ing) => (
+                          <span key={ing} className="pill-stock-used">
+                            {ing}
+                          </span>
+                        ))}
+                      </div>
                     </div>
 
-                    {/* Ingredient list */}
-                    <p className="card-ingredient-list" aria-label="Key ingredients">
-                      {formatIngredients(recipe.utilizedIngredients)}
-                    </p>
-
-                    {/* Substitution callout */}
+                    {/* Conditional Callout for Quick Run Tab / Substitutions */}
                     {recipe.substitutes && recipe.substitutes.length > 0 && (
-                      <div className="card-sub-callout" role="note">
-                        <Info size={14} style={{ flexShrink: 0, marginTop: 1 }} aria-hidden="true" />
-                        <span>
-                          Missing <strong>{recipe.substitutes[0].missing}</strong> — substitute with {recipe.substitutes[0].use}
-                        </span>
+                      <div className="substitution-callout-box warning-light">
+                        <Info size={18} color="#E67E22" style={{ flexShrink: 0, marginTop: '2px' }} />
+                        <p className="substitution-text">
+                          Missing: <strong>{recipe.substitutes[0].missing}</strong>.{' '}
+                          <span className="sub-suggestion">
+                            Substitute with {recipe.substitutes[0].use}.
+                          </span>
+                        </p>
                       </div>
                     )}
                   </div>
+
+                  <footer className="card-footer-action">
+                    <button
+                      className="btn-start-cooking"
+                      data-recipe-id={recipe.id}
+                      onClick={() => handleStartCooking(recipe)}
+                    >
+                      Start Cooking
+                    </button>
+                  </footer>
                 </article>
               );
             })
           ) : (
-            <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
+            /* Section 5.2: Empty State */
+            <div className="empty-state-card" style={{ gridColumn: '1 / -1' }}>
               <div className="empty-state-icon">
-                <Soup size={40} aria-hidden="true" />
+                <Soup size={52} color="#E67E22" />
               </div>
-              <p className="empty-state-title">No recipes found</p>
-              <p className="empty-state-desc">
+              <h3 style={{ fontSize: '18px', fontWeight: 800 }}>No Matching Recipes</h3>
+              <p style={{ color: 'var(--color-text-muted)', maxWidth: '360px', fontSize: '14px' }}>
                 {activeTab === 'zero-waste'
-                  ? 'No 100% pantry-match recipes for these filters.'
-                  : 'No recipes matched your search and filter settings.'}
+                  ? 'No 100% zero-waste recipes found for these exact ingredients.'
+                  : 'No recipes matched your active search and filter constraints.'}
               </p>
               {activeTab === 'zero-waste' ? (
                 <button
-                  className="btn btn-primary"
+                  className="btn-primary"
                   onClick={() => {
                     sounds.playTap();
                     setActiveTab('quick-run');
                   }}
                 >
-                  Try quick run
+                  Switch to Quick Run Tab
                 </button>
               ) : (
                 <button
-                  className="btn btn-secondary"
+                  className="btn-secondary"
                   onClick={() => {
                     sounds.playTap();
+                    setSelectedChip('All');
+                    setSearchQuery('');
                     handleResetFilters();
                   }}
                 >
-                  Clear all filters
+                  Clear All Filters
                 </button>
               )}
             </div>
           )}
         </main>
 
-        {/* Filter drawer */}
+        {/* Filter Drawer Modal */}
         <FilterDrawerModal
           isOpen={isFilterModalOpen}
           onClose={() => setIsFilterModalOpen(false)}

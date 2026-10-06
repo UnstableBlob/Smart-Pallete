@@ -4,17 +4,7 @@ import { useAppStore } from '../store/useAppStore';
 import { sounds } from '../services/audio';
 import { api } from '../services/api';
 import confetti from 'canvas-confetti';
-import {
-  Check,
-  ArrowLeft,
-  ArrowRight,
-  Play,
-  Pause,
-  RotateCcw,
-  PartyPopper,
-  X,
-  ChefHat,
-} from 'lucide-react';
+import { Check, ArrowLeft, ArrowRight, Play, Pause, RotateCcw, PartyPopper } from 'lucide-react';
 
 export const CookModePage: React.FC = () => {
   const { recipeId } = useParams<{ recipeId: string }>();
@@ -29,6 +19,7 @@ export const CookModePage: React.FC = () => {
     completeMeal,
   } = useAppStore();
 
+  // Find target recipe if not already active
   const recipe = activeRecipe || recipes.find((r) => r.id === recipeId) || recipes[0];
 
   useEffect(() => {
@@ -42,18 +33,21 @@ export const CookModePage: React.FC = () => {
   const isFinalStep = currentStepIndex === totalSteps - 1;
   const progressPercent = Math.round(((currentStepIndex + 1) / totalSteps) * 100);
 
-  const initialSeconds = currentStep?.timerSeconds || 0;
+  // Embedded Step Timer State
+  const initialSeconds = currentStep?.timerSeconds || 180;
   const [secondsRemaining, setSecondsRemaining] = useState(initialSeconds);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [checkedIngredients, setCheckedIngredients] = useState<Record<string, boolean>>({});
   const [isCompletedModalOpen, setIsCompletedModalOpen] = useState(false);
 
+  // Reset timer whenever step changes
   useEffect(() => {
     setIsTimerRunning(false);
-    setSecondsRemaining(currentStep?.timerSeconds || 0);
+    setSecondsRemaining(currentStep?.timerSeconds || 180);
     setCheckedIngredients({});
   }, [currentStepIndex, currentStep]);
 
+  // Timer Tick Hook
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null;
     if (isTimerRunning && secondsRemaining > 0) {
@@ -69,26 +63,39 @@ export const CookModePage: React.FC = () => {
         });
       }, 1000);
     }
-    return () => { if (interval) clearInterval(interval); };
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [isTimerRunning, secondsRemaining]);
 
-  const formatTimer = (total: number) => {
-    const m = Math.floor(total / 60);
-    const s = total % 60;
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  const formatTimerDigits = (totalSecs: number) => {
+    const mins = Math.floor(totalSecs / 60);
+    const secs = totalSecs % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
-  const handleCompleteMeal = async () => {
+  const handleToggleCheck = (key: string) => {
+    sounds.playTap();
+    setCheckedIngredients((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleCompleteMealAction = async () => {
     sounds.playMealComplete();
+
+    // Trigger fireworks confetti celebration
     try {
       confetti({
-        particleCount: 100,
-        spread: 70,
+        particleCount: 120,
+        spread: 80,
         origin: { y: 0.6 },
-        colors: ['#2F6B4F', '#5FAE8A', '#E4F0E9', '#B26A00', '#FDF1DC'],
+        colors: ['#3A7D44', '#4ADE80', '#E67E22', '#FCD34D', '#E05A47'],
       });
-    } catch { /* no-op */ }
+    } catch {
+      // Confetti fallback
+    }
 
+    // Call API: POST /api/v1/pantry/deduct-consumed
     try {
       const consumedList = recipe.ingredients.map((ing) => ({
         name: ing.name,
@@ -105,26 +112,22 @@ export const CookModePage: React.FC = () => {
 
   if (!recipe) {
     return (
-      <div className="content-container">
-        <div className="empty-state" style={{ paddingTop: 'var(--space-8)' }}>
-          <div className="empty-state-icon"><ChefHat size={40} /></div>
-          <p className="empty-state-title">Recipe not found</p>
-          <button className="btn btn-primary" onClick={() => navigate('/recipes')}>
-            Back to recipes
-          </button>
-        </div>
+      <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+        <h2>Recipe not found</h2>
+        <button className="btn-primary" onClick={() => navigate('/recipes')} style={{ marginTop: '16px' }}>
+          Back to Recipes
+        </button>
       </div>
     );
   }
 
   return (
     <div className="content-container">
-      <div style={{ paddingBottom: 'var(--space-7)' }}>
-        {/* Cook mode header */}
-        <div className="cook-header">
+      <div id="cook-mode-page-container">
+        {/* 3.4 Header */}
+        <header id="cook-mode-header">
           <button
             id="btn-exit-cook-mode"
-            className="btn btn-ghost btn-icon"
             onClick={() => {
               sounds.playTap();
               navigate('/recipes');
@@ -132,141 +135,112 @@ export const CookModePage: React.FC = () => {
             title="Exit cooking mode"
             aria-label="Exit cooking mode"
           >
-            <X size={18} />
+            ✕ Exit
           </button>
 
-          <span className="cook-step-label">
-            Step {currentStepIndex + 1} of {totalSteps}
-          </span>
-
-          <div className="cook-progress-bar" role="progressbar" aria-valuenow={progressPercent} aria-valuemin={0} aria-valuemax={100}>
-            <div
-              className="cook-progress-fill"
-              style={{ width: `${progressPercent}%` }}
-            />
+          <div id="recipe-progress-indicator">
+            <span id="step-counter-text">
+              Step {currentStepIndex + 1} of {totalSteps}
+            </span>
+            <div id="progress-bar-track">
+              <div
+                id="progress-bar-fill"
+                style={{ width: `${progressPercent}%` }}
+                role="progressbar"
+                aria-valuenow={progressPercent}
+                aria-valuemin={0}
+                aria-valuemax={100}
+              />
+            </div>
           </div>
+        </header>
 
-          <span className="cook-step-label">{progressPercent}%</span>
-        </div>
-
-        {/* Recipe title (compact) */}
-        <p
-          style={{
-            fontSize: 'var(--text-body-sm-size)',
-            color: 'var(--color-text-secondary)',
-            padding: 'var(--space-3) 0 0',
-            fontStyle: 'italic',
-          }}
-        >
-          {recipe.title}
-        </p>
-
-        {/* Step card */}
+        {/* 3.4 Main Viewport */}
         <main id="cook-step-card-viewport">
-          <div className="step-card">
-            <div className="step-number-badge" aria-hidden="true">
+          <div id="step-card-container" className="card-focus">
+            <div id="step-number-badge">
               Step {String(currentStepIndex + 1).padStart(2, '0')}
             </div>
 
-            <p className="step-instruction" id="step-instruction">
+            <h2 id="step-instruction-heading">
               {currentStep?.instruction}
-            </p>
+            </h2>
 
-            {/* Timer */}
-            {currentStep?.timerSeconds && currentStep.timerSeconds > 0 && (
-              <div className="timer-widget" aria-label="Cooking timer">
-                <div
-                  className="timer-digits"
-                  aria-live="off"
-                  aria-label={`Time remaining: ${formatTimer(secondsRemaining)}`}
-                >
-                  {formatTimer(secondsRemaining)}
+            {/* Embedded Step Timer (Rendered if step requires timing) */}
+            {currentStep?.timerSeconds && (
+              <div id="interactive-timer-widget">
+                <div id="timer-display-digits" aria-live="off">
+                  {formatTimerDigits(secondsRemaining)}
                 </div>
-                <div className="timer-controls">
+
+                <div id="timer-controls-group">
                   {!isTimerRunning ? (
                     <button
                       id="btn-timer-start"
-                      className="btn btn-primary btn-sm"
                       onClick={() => {
                         sounds.playTap();
                         setIsTimerRunning(true);
                       }}
-                      aria-label="Start timer"
+                      aria-label="Start cooking timer"
                     >
-                      <Play size={13} />
-                      <span>Start</span>
+                      <Play size={15} style={{ display: 'inline', marginRight: 4 }} />
+                      Start Timer
                     </button>
                   ) : (
                     <button
                       id="btn-timer-pause"
-                      className="btn btn-secondary btn-sm"
                       onClick={() => {
                         sounds.playTap();
                         setIsTimerRunning(false);
                       }}
-                      aria-label="Pause timer"
+                      aria-label="Pause cooking timer"
                     >
-                      <Pause size={13} />
-                      <span>Pause</span>
+                      <Pause size={15} style={{ display: 'inline', marginRight: 4 }} />
+                      Pause
                     </button>
                   )}
+
                   <button
                     id="btn-timer-reset"
-                    className="btn btn-ghost btn-sm"
                     onClick={() => {
                       sounds.playTap();
                       setIsTimerRunning(false);
-                      setSecondsRemaining(currentStep.timerSeconds || 0);
+                      setSecondsRemaining(currentStep.timerSeconds || 180);
                     }}
-                    aria-label="Reset timer"
+                    aria-label="Reset cooking timer"
                   >
-                    <RotateCcw size={13} />
-                    <span>Reset</span>
+                    <RotateCcw size={15} style={{ display: 'inline', marginRight: 4 }} />
+                    Reset
                   </button>
                 </div>
               </div>
             )}
 
-            {/* Ingredient checklist for this step */}
+            {/* Step Specific Ingredients List */}
             {currentStep?.neededIngredients && currentStep.neededIngredients.length > 0 && (
-              <div className="step-checklist">
-                <p
-                  style={{
-                    fontSize: 'var(--text-body-sm-size)',
-                    fontWeight: 600,
-                    color: 'var(--color-text-secondary)',
-                    marginBottom: 'var(--space-3)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.06em',
-                    fontSize: 'var(--text-caption-size)',
-                  }}
-                >
-                  Needed for this step
-                </p>
-                <ul aria-label="Ingredients for this step">
+              <div id="step-ingredients-checklist">
+                <h3>Needed for this step:</h3>
+                <ul id="checklist-group">
                   {currentStep.neededIngredients.map((item, idx) => {
                     const chkId = `chk-ing-${idx}`;
                     const isChecked = !!checkedIngredients[chkId];
+
                     return (
                       <li key={idx} className="checklist-item">
                         <input
                           type="checkbox"
                           id={chkId}
                           checked={isChecked}
-                          onChange={() => {
-                            sounds.playTap();
-                            setCheckedIngredients((prev) => ({ ...prev, [chkId]: !prev[chkId] }));
-                          }}
-                          style={{ width: 16, height: 16, accentColor: 'var(--color-accent-600)', flexShrink: 0 }}
+                          onChange={() => handleToggleCheck(chkId)}
                         />
                         <label
                           htmlFor={chkId}
                           style={{
                             textDecoration: isChecked ? 'line-through' : 'none',
-                            color: isChecked ? 'var(--color-text-tertiary)' : 'var(--color-text-primary)',
+                            color: isChecked ? 'var(--color-text-muted)' : 'var(--color-text)',
                           }}
                         >
-                          {item.name} — {item.amount}
+                          {item.name} ({item.amount})
                         </label>
                       </li>
                     );
@@ -277,17 +251,17 @@ export const CookModePage: React.FC = () => {
           </div>
         </main>
 
-        {/* Navigation footer */}
-        <footer className="cook-nav-bar">
+        {/* 3.4 Navigation Bar */}
+        <footer id="cook-mode-navigation-bar">
           <button
             id="btn-prev-step"
-            className="btn btn-secondary"
+            className="btn-secondary"
             onClick={() => {
               sounds.playTap();
               prevStep();
             }}
             disabled={currentStepIndex === 0}
-            aria-label="Previous step"
+            style={{ opacity: currentStepIndex === 0 ? 0.4 : 1 }}
           >
             <ArrowLeft size={16} />
             <span>Previous</span>
@@ -296,121 +270,129 @@ export const CookModePage: React.FC = () => {
           {!isFinalStep ? (
             <button
               id="btn-next-step"
-              className="btn btn-primary"
-              style={{ flex: 1 }}
+              className="btn-primary"
               onClick={() => {
                 sounds.playTap();
                 nextStep();
               }}
-              aria-label="Next step"
             >
-              <span>Next step</span>
+              <span>Next Step</span>
               <ArrowRight size={16} />
             </button>
           ) : (
             <button
               id="btn-complete-meal"
-              className="btn btn-primary"
-              style={{ flex: 1, backgroundColor: 'var(--color-success)' }}
-              onClick={handleCompleteMeal}
-              aria-label="Complete meal"
+              className="btn-success-block"
+              onClick={handleCompleteMealAction}
             >
-              <Check size={16} />
-              <span>Complete meal</span>
+              <Check size={18} />
+              <span>Finish & Complete Meal</span>
             </button>
           )}
         </footer>
 
-        {/* Completion modal */}
+        {/* Meal Completion Modal Dialog */}
         {isCompletedModalOpen && (
           <div
             className="modal-overlay"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="completion-title"
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(15, 23, 42, 0.75)',
+              backdropFilter: 'blur(8px)',
+              zIndex: 70,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '20px',
+            }}
           >
-            <div className="modal-panel" style={{ textAlign: 'center' }}>
-              <div className="modal-body" style={{ alignItems: 'center', gap: 'var(--space-4)' }}>
-                <div
-                  style={{
-                    width: 60,
-                    height: 60,
-                    borderRadius: 'var(--radius-full)',
-                    backgroundColor: 'var(--color-success-bg)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'var(--color-success)',
-                  }}
-                  aria-hidden="true"
-                >
-                  <PartyPopper size={32} />
+            <div
+              style={{
+                backgroundColor: 'var(--color-surface)',
+                borderRadius: 'var(--radius-xl)',
+                maxWidth: '480px',
+                width: '100%',
+                padding: '32px 24px',
+                textAlign: 'center',
+                boxShadow: 'var(--shadow-lg)',
+                border: '1px solid var(--color-border)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '16px',
+              }}
+            >
+              <div
+                style={{
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '9999px',
+                  backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                  color: '#10B981',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <PartyPopper size={36} />
+              </div>
+
+              <h2 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--color-text)' }}>
+                Bon Appétit!
+              </h2>
+
+              <p style={{ color: 'var(--color-text-muted)', fontSize: '14px', lineHeight: 1.5 }}>
+                You completed <strong>{recipe.title}</strong>! Consumed ingredients have been automatically subtracted from your digital pantry.
+              </p>
+
+              <div
+                style={{
+                  width: '100%',
+                  backgroundColor: 'var(--color-surface-alt)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '12px',
+                  display: 'flex',
+                  justifyContent: 'space-around',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  marginTop: '8px',
+                }}
+              >
+                <div>
+                  <span style={{ display: 'block', color: 'var(--color-text-muted)', fontSize: '11px' }}>
+                    Prep Time
+                  </span>
+                  <span>{recipe.cookTimeMinutes} mins</span>
                 </div>
-
-                <h2
-                  id="completion-title"
-                  style={{
-                    fontFamily: 'var(--font-display)',
-                    fontSize: 'var(--text-h1-size)',
-                    fontWeight: 600,
-                    letterSpacing: '-0.01em',
-                  }}
-                >
-                  Bon appétit!
-                </h2>
-
-                <p
-                  style={{
-                    fontSize: 'var(--text-body-sm-size)',
-                    color: 'var(--color-text-secondary)',
-                    maxWidth: 320,
-                    lineHeight: 1.6,
-                  }}
-                >
-                  You completed <strong>{recipe.title}</strong>. Used ingredients have been
-                  subtracted from your pantry.
-                </p>
-
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: 'var(--space-5)',
-                    justifyContent: 'center',
-                    width: '100%',
-                    backgroundColor: 'var(--color-bg-subtle)',
-                    borderRadius: 'var(--radius-md)',
-                    padding: 'var(--space-4)',
-                  }}
-                >
-                  {[
-                    { label: 'Cook time', value: `${recipe.cookTimeMinutes} min` },
-                    { label: 'Servings', value: `${recipe.servings}` },
-                    { label: 'Match', value: `${recipe.matchScore}%` },
-                  ].map((stat) => (
-                    <div key={stat.label} style={{ textAlign: 'center' }}>
-                      <p style={{ fontSize: 'var(--text-caption-size)', color: 'var(--color-text-tertiary)' }}>
-                        {stat.label}
-                      </p>
-                      <p style={{ fontSize: 'var(--text-h3-size)', fontWeight: 600, marginTop: 2 }}>
-                        {stat.value}
-                      </p>
-                    </div>
-                  ))}
+                <div>
+                  <span style={{ display: 'block', color: 'var(--color-text-muted)', fontSize: '11px' }}>
+                    Servings
+                  </span>
+                  <span>{recipe.servings} people</span>
+                </div>
+                <div>
+                  <span style={{ display: 'block', color: 'var(--color-text-muted)', fontSize: '11px' }}>
+                    Match Score
+                  </span>
+                  <span style={{ color: '#10B981' }}>{recipe.matchScore}%</span>
                 </div>
               </div>
 
-              <div className="modal-footer" style={{ justifyContent: 'center' }}>
-                <button
-                  className="btn btn-primary"
-                  onClick={() => {
-                    sounds.playTap();
-                    setIsCompletedModalOpen(false);
-                    navigate('/pantry');
-                  }}
-                >
-                  View updated pantry
-                </button>
-              </div>
+              <button
+                className="btn-primary-block"
+                style={{ marginTop: '12px' }}
+                onClick={() => {
+                  sounds.playTap();
+                  setIsCompletedModalOpen(false);
+                  navigate('/pantry?mealCompleted=true');
+                }}
+              >
+                View Updated Pantry
+              </button>
             </div>
           </div>
         )}
