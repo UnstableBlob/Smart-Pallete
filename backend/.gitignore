@@ -1,0 +1,15 @@
+# Local Python environment
+venv/
+.venv/
+env/
+
+# Runtime artifacts
+.env
+*.db
+*.sqlite
+*.sqlite3
+uploads/
+
+# Downloaded model and cache output
+app/models/*
+!app/models/.gitkeep
