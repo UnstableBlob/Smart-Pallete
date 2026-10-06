@@ -547,3 +547,76 @@ ul, ol { list-style: none; }
   transition: border-color var(--dur-fast) var(--ease-enter), box-shadow var(--dur-fast) var(--ease-enter);
 }
 .select-field:focus { border-color: var(--color-accent-600); box-shadow: 0 0 0 3px var(--color-accent-100); }
+
+/* Blueprint alignment for the remaining page primitives. */
+.page-surface { min-height: calc(100vh - var(--nav-height-desktop)); }
+.eyebrow { color: var(--color-text-tertiary); font-size: var(--text-caption-size); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; margin-bottom: var(--space-2); }
+.recipe-toolbar { display: flex; gap: var(--space-3); align-items: center; margin-bottom: var(--space-3); }
+.recipe-toolbar .search-wrapper { flex: 1; }
+.filter-button { flex-shrink: 0; }
+.card-meta-row span { display: inline-flex; align-items: center; gap: 5px; }
+.card-meta-row { gap: var(--space-2); }
+.card-match-line { min-height: 22px; }
+.recipe-card { min-width: 0; }
+.recipe-card:focus-visible { outline: 2px solid var(--color-accent-600); outline-offset: 3px; }
+.nav-inner-container { gap: var(--space-6); }
+.nav-link-item svg { display: none; }
+.nav-count-badge { border-radius: var(--radius-sm); }
+.btn { text-decoration: none; }
+#pantry-page-container, #profile-page-container, #cook-mode-page-container { padding-top: var(--space-2); }
+@media (max-width: 767px) {
+  .page-surface { min-height: calc(100vh - var(--nav-height-mobile)); }
+  .page-header { padding-top: var(--space-5); }
+  .recipe-toolbar { align-items: stretch; }
+  .filter-button { width: 44px; padding: 0; font-size: 0; }
+  .filter-button svg { margin: 0; }
+}
+.scan-page-header { padding-bottom: var(--space-4); }
+.scan-close-button { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; color: var(--color-text-secondary); border-radius: var(--radius-md); }
+.scan-close-button:hover { background: var(--color-bg-subtle); color: var(--color-text-primary); }
+.scan-review-panel { background: var(--color-bg-surface); border: 1px solid var(--color-border-default); border-radius: var(--radius-lg); padding: var(--space-4); }
+.scan-review-copy { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-2) 0; }
+.scan-review-copy h2 { font-size: var(--text-h2-size); }
+.scan-review-copy p { color: var(--color-text-secondary); }
+.scan-review-actions { display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; margin-top: var(--space-2); }
+#pantry-dashboard-header { padding: var(--space-6) 0 var(--space-4); }
+#pantry-title-row { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-4); }
+#pantry-title-row h1, #profile-header h1 { font-family: var(--font-display); font-size: var(--text-display-size); line-height: var(--text-display-lh); font-weight: 600; }
+#pantry-title-row .btn-accent { display: inline-flex; align-items: center; justify-content: center; height: 40px; padding: 0 var(--space-4); border-radius: var(--radius-md); background: var(--color-accent-600); color: #fff; font-weight: 600; }
+#pantry-category-pills { display: flex; gap: var(--space-2); overflow-x: auto; border-bottom: 1px solid var(--color-border-default); margin-top: var(--space-5); }
+.pill-category { height: 40px; padding: 0 var(--space-3); color: var(--color-text-secondary); border-bottom: 2px solid transparent; white-space: nowrap; }
+.pill-category.active { color: var(--color-text-primary); border-bottom-color: var(--color-accent-600); }
+#expiry-warning-banner { display: flex; align-items: center; gap: var(--space-3); margin: var(--space-4) 0; padding: var(--space-3) var(--space-4); border: 1px solid var(--color-border-default); border-radius: var(--radius-md); background: var(--color-warning-bg); color: var(--color-warning); }
+#expiry-warning-banner h4 { font-size: var(--text-body-sm-size); color: var(--color-text-primary); }
+#expiry-warning-banner p { font-size: var(--text-body-sm-size); }
+#btn-cook-expiring-items { margin-left: auto; color: var(--color-warning); text-decoration: underline; white-space: nowrap; }
+#pantry-inventory-list { border: 1px solid var(--color-border-default); border-radius: var(--radius-lg); overflow: hidden; background: var(--color-bg-surface); }
+.pantry-item-card { display: grid; grid-template-columns: 1fr auto auto auto; align-items: center; gap: var(--space-4); min-height: 56px; padding: var(--space-2) var(--space-4); border-bottom: 1px solid var(--color-border-default); }
+.pantry-item-card:last-child { border-bottom: 0; }
+.pantry-item-card:hover { background: var(--color-bg-subtle); }
+.pantry-item-emoji { display: none; }
+.pantry-item-info .item-name { font-size: var(--text-body-size); font-weight: 600; }
+.pantry-item-info .item-meta { display: block; color: var(--color-text-secondary); font-size: var(--text-caption-size); }
+.pantry-item-qty { color: var(--color-text-primary); font-variant-numeric: tabular-nums; }
+.pantry-expiry-text { min-width: 78px; color: var(--color-text-secondary); font-size: var(--text-body-sm-size); text-align: right; }
+.pantry-expiry-text.warning { color: var(--color-warning); }
+.pantry-expiry-text.danger { color: var(--color-danger); }
+.pantry-item-actions { display: flex; gap: var(--space-1); }
+.btn-edit-stock, .btn-delete-stock { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: var(--radius-md); color: var(--color-text-secondary); }
+.btn-edit-stock:hover { background: var(--color-bg-subtle); color: var(--color-text-primary); }
+.btn-delete-stock:hover { background: var(--color-danger-bg); color: var(--color-danger); }
+#profile-page-container { max-width: var(--max-form-width); margin: 0 auto; }
+#profile-header { padding: var(--space-6) 0 var(--space-4); }
+#profile-form-wrapper { background: var(--color-bg-surface); border-top: 1px solid var(--color-border-default); }
+.pref-group-box { padding: var(--space-6) 0; border-bottom: 1px solid var(--color-border-default); }
+.pref-group-box h3 { font-size: var(--text-h3-size); margin-bottom: var(--space-2); }
+.pref-group-box p { color: var(--color-text-secondary) !important; }
+.checkbox-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-2); margin-top: var(--space-4); }
+.checkbox-tile { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3); border: 1px solid var(--color-border-default); border-radius: var(--radius-md); }
+.checkbox-tile.checked { background: var(--color-accent-50); border-color: var(--color-accent-600); }
+.checkbox-tile input { accent-color: var(--color-accent-600); }
+#slider-spice-level, #select-prep-speed { width: 100%; margin-top: var(--space-4); }
+#spice-labels-row { display: flex; justify-content: space-between; color: var(--color-text-secondary); font-size: var(--text-caption-size); margin-top: var(--space-2); }
+#profile-form-footer { display: flex; justify-content: flex-end; padding: var(--space-5) 0; }
+#profile-form-footer #btn-save-preferences { width: auto !important; }
+@media (max-width: 639px) { #pantry-title-row { align-items: flex-start; flex-direction: column; } .pantry-item-card { grid-template-columns: 1fr auto auto; } .pantry-item-actions { grid-column: 3; grid-row: 1 / span 2; } .pantry-expiry-text { grid-column: 2; grid-row: 1; } .checkbox-grid { grid-template-columns: 1fr; } #profile-form-footer { position: sticky; bottom: var(--nav-height-mobile); background: var(--color-bg-surface); } }

@@ -1,18 +1,16 @@
-import React, { useState, useMemo } from 'react';
+import {
+    Clock,
+    Heart,
+    Info,
+    SlidersHorizontal,
+    Soup,
+} from 'lucide-react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { FilterDrawerModal } from '../components/FilterDrawer/FilterDrawerModal';
+import { sounds } from '../services/audio';
 import { useAppStore } from '../store/useAppStore';
 import type { FilterState, Recipe } from '../types';
-import { sounds } from '../services/audio';
-import { FilterDrawerModal } from '../components/FilterDrawer/FilterDrawerModal';
-import {
-  SlidersHorizontal,
-  Clock,
-  Flame,
-  ChefHat,
-  Info,
-  Heart,
-  Soup,
-} from 'lucide-react';
 
 const FILTER_CHIPS = ['All', 'Keto', 'Vegan', 'Gluten-Free', 'Under 20 Mins'];
 
@@ -184,7 +182,13 @@ export const RecipesPage: React.FC = () => {
               const isBookmarked = bookmarkedRecipeIds.includes(recipe.id);
 
               return (
-                <article key={recipe.id} className="recipe-card">
+                <article
+                  key={recipe.id}
+                  className="recipe-card"
+                  tabIndex={0}
+                  onClick={() => handleStartCooking(recipe)}
+                  onKeyDown={(event) => { if (event.key === 'Enter') handleStartCooking(recipe); }}
+                >
                   <div className="card-image-wrapper">
                     <img
                       className="recipe-cover-img"
@@ -193,19 +197,11 @@ export const RecipesPage: React.FC = () => {
                       loading="lazy"
                     />
 
-                    {/* Match Score Badge */}
-                    <span
-                      className={`badge-match-score ${
-                        recipe.matchScore === 100 ? 'percent-100' : 'percent-90'
-                      }`}
-                    >
-                      {recipe.matchScore === 100 ? '100% Pantry Match' : `${recipe.matchScore}% Match`}
-                    </span>
-
                     {/* Bookmark Button */}
                     <button
                       className={`btn-bookmark-recipe ${isBookmarked ? 'active' : ''}`}
-                      onClick={() => {
+                      onClick={(event) => {
+                        event.stopPropagation();
                         sounds.playTap();
                         toggleBookmark(recipe.id);
                       }}
@@ -220,31 +216,19 @@ export const RecipesPage: React.FC = () => {
                     </button>
                   </div>
 
-                  <div className="card-content-body">
-                    <h3 className="recipe-title">{recipe.title}</h3>
+                  <div className="card-body">
+                    <h2 className="card-title">{recipe.title}</h2>
 
-                    <div className="recipe-meta-row">
-                      <span className="meta-item cook-time">
-                        <Clock size={15} /> {recipe.cookTimeMinutes} mins
-                      </span>
-                      <span className="meta-item spice-level">
-                        <Flame size={15} /> {recipe.spiceLevel}
-                      </span>
-                      <span className="meta-item difficulty">
-                        <ChefHat size={15} /> {recipe.difficulty}
-                      </span>
+                    <div className="card-meta-row">
+                      <span><Clock size={14} /> {recipe.cookTimeMinutes} min</span>
+                      <span className="card-meta-dot" />
+                      <span>{recipe.difficulty}</span>
                     </div>
 
-                    <div className="utilized-ingredients-preview">
-                      <span className="label">Uses from pantry:</span>
-                      <div className="pill-group">
-                        {recipe.utilizedIngredients.map((ing) => (
-                          <span key={ing} className="pill-stock-used">
-                            {ing}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
+                    <p className="card-match-line">
+                      {recipe.matchScore === 100 ? <span className="badge-pantry">In your pantry</span> : `Uses ${recipe.utilizedIngredients.length} of your ingredients`}
+                    </p>
+                    <p className="card-ingredient-list">{recipe.utilizedIngredients.join(', ')}</p>
 
                     {/* Conditional Callout for Quick Run Tab / Substitutions */}
                     {recipe.substitutes && recipe.substitutes.length > 0 && (
@@ -259,16 +243,6 @@ export const RecipesPage: React.FC = () => {
                       </div>
                     )}
                   </div>
-
-                  <footer className="card-footer-action">
-                    <button
-                      className="btn-start-cooking"
-                      data-recipe-id={recipe.id}
-                      onClick={() => handleStartCooking(recipe)}
-                    >
-                      Start Cooking
-                    </button>
-                  </footer>
                 </article>
               );
             })

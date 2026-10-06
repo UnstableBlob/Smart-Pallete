@@ -1,19 +1,19 @@
-import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAppStore } from '../store/useAppStore';
-import { sounds } from '../services/audio';
-import type { PantryItem, CategoryType } from '../types';
-import { getIngredientEmoji } from '../services/mockData';
 import {
-  Plus,
-  Trash2,
-  Edit2,
-  AlertTriangle,
-  Refrigerator,
-  Sparkles,
-  Check,
-  X,
+    AlertTriangle,
+    Check,
+    Edit2,
+    Plus,
+    Refrigerator,
+    Sparkles,
+    Trash2,
+    X,
 } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { sounds } from '../services/audio';
+import { getIngredientEmoji } from '../services/mockData';
+import { useAppStore } from '../store/useAppStore';
+import type { CategoryType, PantryItem } from '../types';
 
 const CATEGORIES = ['All', 'Produce', 'Dairy', 'Pantry Staples', 'Meat/Seafood', 'Bakery'];
 
@@ -44,9 +44,19 @@ export const PantryPage: React.FC = () => {
       const expiryTime = new Date(item.expiryDate).getTime();
       const now = Date.now();
       const diffHours = (expiryTime - now) / (1000 * 3600);
-      return diffHours <= 48 && diffHours >= -24;
+      return diffHours <= 48;
     });
   }, [pantryStock]);
+
+  const expiryLabel = (expiryDate?: string) => {
+    if (!expiryDate) return 'No expiry date';
+    const days = Math.ceil((new Date(expiryDate).getTime() - Date.now()) / (1000 * 3600 * 24));
+    if (days < 0) return 'Expired';
+    if (days === 0) return 'Today';
+    if (days === 1) return 'Tomorrow';
+    if (days <= 7) return `In ${days} days`;
+    return new Date(expiryDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  };
 
   // Filtered inventory list
   const filteredStock = useMemo(() => {
@@ -191,6 +201,7 @@ export const PantryPage: React.FC = () => {
           {filteredStock.length > 0 ? (
             filteredStock.map((item) => {
               const isExpiring = expiringItems.some((e) => e.id === item.id);
+              const isExpired = item.expiryDate ? new Date(item.expiryDate).getTime() < Date.now() : false;
 
               return (
                 <div
@@ -208,30 +219,32 @@ export const PantryPage: React.FC = () => {
                     <h4 className="item-name">
                       {item.name}
                       {isExpiring && (
-                        <span
+                          <span
                           style={{
                             marginLeft: '8px',
                             fontSize: '11px',
                             fontWeight: 800,
-                            color: '#E05A47',
+                            color: isExpired ? 'var(--color-danger)' : 'var(--color-warning)',
                             backgroundColor: '#FEF2F2',
                             padding: '2px 6px',
                             borderRadius: '9999px',
                           }}
                         >
-                          Expiring Soon
+                          {isExpired ? 'Expired' : 'Expiring Soon'}
                         </span>
                       )}
                     </h4>
                     <span className="item-meta">
-                      {item.addedAt || 'In stock'} • Category: {item.category}
-                      {item.expiryDate && ` • Exp: ${item.expiryDate}`}
+                      {item.addedAt || 'In stock'} • {item.category}
                     </span>
                   </div>
 
                   <div className="pantry-item-qty">
                     <span className="qty-label">
                       {item.quantity} {item.unit}
+                    </span>
+                    <span className={`pantry-expiry-text ${isExpired ? 'danger' : isExpiring ? 'warning' : ''}`}>
+                      {expiryLabel(item.expiryDate)}
                     </span>
                   </div>
 

@@ -1,8 +1,8 @@
+import { BookOpen, Camera, Moon, Package, Sun, User } from 'lucide-react';
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { useAppStore } from '../../store/useAppStore';
-import { Camera, BookOpen, Package, User, Sun, Moon, ChefHat, Sparkles } from 'lucide-react';
 import { sounds } from '../../services/audio';
+import { useAppStore } from '../../store/useAppStore';
 
 export const Navbar: React.FC = () => {
   const location = useLocation();
@@ -28,15 +28,7 @@ export const Navbar: React.FC = () => {
       <header id="app-header-nav">
         <div className="nav-inner-container">
           {/* Logo & Branding */}
-          <NavLink to="/" className="brand-logo-group" onClick={() => sounds.playTap()}>
-            <div className="brand-icon-box">
-              <ChefHat size={24} color="#FFFFFF" />
-            </div>
-            <div>
-              <div className="brand-text-title">Smart Palette</div>
-              <div className="brand-text-subtitle">AI Kitchen Assistant</div>
-            </div>
-          </NavLink>
+          <NavLink to="/" className="brand-wordmark" onClick={() => sounds.playTap()}>Smart Palette</NavLink>
 
           {/* Desktop Nav Items */}
           <nav className="desktop-nav-links" aria-label="Main Navigation">
@@ -46,7 +38,7 @@ export const Navbar: React.FC = () => {
               onClick={() => sounds.playTap()}
             >
               <Camera size={18} />
-              <span>Scan Fridge</span>
+              <span>Scan</span>
             </NavLink>
 
             <NavLink
@@ -67,14 +59,7 @@ export const Navbar: React.FC = () => {
               <span>Pantry</span>
               {expiringCount > 0 && (
                 <span
-                  style={{
-                    backgroundColor: '#E05A47',
-                    color: '#FFFFFF',
-                    fontSize: '11px',
-                    fontWeight: 800,
-                    padding: '1px 6px',
-                    borderRadius: '9999px',
-                  }}
+                  className="nav-count-badge"
                   title={`${expiringCount} items expiring soon`}
                 >
                   {expiringCount}
@@ -88,7 +73,7 @@ export const Navbar: React.FC = () => {
               onClick={() => sounds.playTap()}
             >
               <User size={18} />
-              <span>Preferences</span>
+              <span>Profile</span>
             </NavLink>
           </nav>
 
@@ -106,12 +91,10 @@ export const Navbar: React.FC = () => {
             {location.pathname !== '/' && (
               <NavLink
                 to="/"
-                className="btn-primary"
-                style={{ padding: '8px 16px', fontSize: '13px' }}
+                className="btn btn-primary"
                 onClick={() => sounds.playTap()}
               >
-                <Sparkles size={16} />
-                <span>Quick Scan</span>
+                <span>Quick scan</span>
               </NavLink>
             )}
           </div>
@@ -131,11 +114,12 @@ export const Navbar: React.FC = () => {
 
         <NavLink
           to="/"
-          className="mobile-scan-highlight-btn"
+          className={({ isActive }) => `mobile-nav-item ${isActive ? 'active' : ''}`}
           aria-label="Scan Fridge"
           onClick={() => sounds.playTap()}
         >
-          <Camera size={24} />
+          <Camera size={19} />
+          <span>Scan</span>
         </NavLink>
 
         <NavLink
