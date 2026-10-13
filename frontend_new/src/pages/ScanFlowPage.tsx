@@ -17,12 +17,18 @@ export const ScanFlowPage: React.FC = () => {
   const processImage = async (file: File) => {
     setPreview(URL.createObjectURL(file));
     setIsScanning(true);
+    setDetectedBuffer([]);
     try {
       const results = await api.scanFridgeImage(file);
       setDetectedBuffer(results.map((item) => ({ ...item, emoji: getIngredientEmoji(item.name), addedAt: 'Just scanned' })));
+      if (results.length === 0) {
+        addToast('No items recognized automatically. You can add them manually.', 'info');
+      } else {
+        addToast(`Detected ${results.length} items from photo!`, 'success');
+      }
       setIsReviewOpen(true);
-    } catch {
-      addToast('Could not process that image. Please try again.', 'error');
+    } catch (err: any) {
+      addToast(err?.message || 'Could not process that image. Please try again.', 'error');
     } finally {
       setIsScanning(false);
     }

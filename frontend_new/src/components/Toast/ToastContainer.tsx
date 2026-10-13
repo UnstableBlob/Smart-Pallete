@@ -1,6 +1,6 @@
+import { AlertTriangle, CheckCircle2, Info, XCircle } from 'lucide-react';
 import React from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { CheckCircle2, AlertTriangle, Info, XCircle } from 'lucide-react';
 
 export const ToastContainer: React.FC = () => {
   const { toasts, removeToast } = useAppStore();

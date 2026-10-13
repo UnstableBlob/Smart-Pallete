@@ -25,7 +25,19 @@
     "yogurt",
     "pasta",
     "rice",
-    "chicken"
+    "chicken",
+    "orange",
+    "grapes",
+    "lettuce",
+    "cabbage",
+    "bottle",
+    "sauce",
+    "jar",
+    "can",
+    "meat",
+    "container",
+    "strawberry",
+    "radish"
   ],
   "perishability": {
     "spinach": "high",
@@ -41,6 +53,11 @@
     "apple": "medium",
     "banana": "medium",
     "lemon": "medium",
+    "orange": "medium",
+    "grapes": "high",
+    "strawberry": "high",
+    "lettuce": "high",
+    "cabbage": "medium",
     "carrot": "low",
     "onion": "low",
     "potato": "low",
@@ -50,14 +67,21 @@
     "peas": "low",
     "cucumber": "medium",
     "capsicum": "medium",
+    "radish": "medium",
     "butter": "medium",
     "pasta": "low",
     "rice": "low",
-    "chicken": "high"
+    "chicken": "high",
+    "meat": "high",
+    "bottle": "low",
+    "sauce": "low",
+    "jar": "low",
+    "can": "low",
+    "container": "medium"
   },
   "dietary_restrictions": {
-    "vegan": ["egg", "milk", "cheese", "paneer", "butter", "yogurt", "chicken"],
-    "vegetarian": ["chicken"],
+    "vegan": ["egg", "milk", "cheese", "paneer", "butter", "yogurt", "chicken", "meat"],
+    "vegetarian": ["chicken", "meat"],
     "gluten_free": ["bread", "pasta"],
     "dairy_free": ["milk", "cheese", "paneer", "butter", "yogurt"]
   }

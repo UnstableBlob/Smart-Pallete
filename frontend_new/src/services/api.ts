@@ -1,4 +1,5 @@
 import type { PantryItem, ProfilePreferences, Recipe } from '../types';
+import { getIngredientCategory } from './ingredientUtils';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -61,16 +62,16 @@ class ApiService {
       error?: { message?: string };
     }>('/api/v1/vision/scan', { method: 'POST', body: formData });
 
-    if (!response.success) {
-      throw new Error(response.error?.message || 'No ingredients detected');
+    if (!response.success && response.error) {
+      throw new Error(response.error?.message || 'Failed to scan image');
     }
 
-    return response.ingredients.map((item, index) => ({
+    return (response.ingredients || []).map((item, index) => ({
       id: `det-${Date.now()}-${index}`,
       name: item.name,
       quantity: item.count,
       unit: 'pcs',
-      category: 'Produce',
+      category: getIngredientCategory(item.name),
       confidence: item.confidence,
       bbox: item.bbox,
     }));

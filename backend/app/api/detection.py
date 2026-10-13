@@ -111,17 +111,13 @@ async def detect_ingredients(
     counted = counting.count_detections(raw_detections)
 
     if not counted:
+        logger.info("[%s] No ingredients detected above threshold", request_id)
         return DetectionResponse(
-            success=False,
+            success=True,
             request_id=request_id,
             inference_time_ms=inference_time_ms,
             model_version=detector.get_model_version(),
             ingredients=[],
-            error={
-                "code": "NO_INGREDIENTS_DETECTED",
-                "message": "No supported ingredients were detected in the image. "
-                           "Try a clearer photo or adjust the confidence threshold.",
-            },
         )
 
     ingredients = [

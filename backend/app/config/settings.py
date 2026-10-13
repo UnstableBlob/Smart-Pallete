@@ -27,7 +27,7 @@ DIETARY_RESTRICTIONS: dict[str, list[str]] = _ingredient_config.get("dietary_res
 # ── YOLO ───────────────────────────────────────────────────────────────────
 YOLO_MODEL_NAME: str = os.getenv("YOLO_MODEL_NAME", "yolov8s-worldv2.pt")
 YOLO_MODEL_PATH: Path = MODELS_DIR / YOLO_MODEL_NAME
-YOLO_CONFIDENCE_THRESHOLD: float = float(os.getenv("YOLO_CONFIDENCE_THRESHOLD", "0.30"))
+YOLO_CONFIDENCE_THRESHOLD: float = float(os.getenv("YOLO_CONFIDENCE_THRESHOLD", "0.12"))
 YOLO_MAX_IMAGE_SIZE_MB: float = float(os.getenv("YOLO_MAX_IMAGE_SIZE_MB", "10"))
 
 # ── Groq / LLM ─────────────────────────────────────────────────────────────
