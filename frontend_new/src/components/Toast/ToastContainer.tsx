@@ -18,7 +18,7 @@ export const ToastContainer: React.FC = () => {
         return (
           <div
             key={toast.id}
-            className={`toast-toast-item ${toast.type}`}
+            className={`toast-item ${toast.type}`}
             onClick={() => removeToast(toast.id)}
             role="alert"
           >

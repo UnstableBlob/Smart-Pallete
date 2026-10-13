@@ -13,6 +13,11 @@ import { useAppStore } from './store/useAppStore';
 export const App: React.FC = () => {
   const setPantryStock = useAppStore((state) => state.setPantryStock);
   const addToast = useAppStore((state) => state.addToast);
+  const theme = useAppStore((state) => state.userProfile.theme);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
 
   useEffect(() => {
     void api.fetchPantryInventory()
