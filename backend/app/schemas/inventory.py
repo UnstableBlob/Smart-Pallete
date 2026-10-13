@@ -16,8 +16,10 @@ class InventoryItemCreate(BaseModel):
 
 
 class InventoryItemUpdate(BaseModel):
+    name: str | None = None
     quantity: float | None = Field(default=None, ge=0)
     unit: str | None = None
+    category: str | None = None
     expiry_date: date | None = None
     perishability: str | None = None
 

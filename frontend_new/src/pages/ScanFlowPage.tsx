@@ -3,13 +3,13 @@ import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { VerificationModal } from '../components/VerificationModal/VerificationModal';
 import { api } from '../services/api';
-import { getIngredientEmoji } from '../services/mockData';
+import { getIngredientEmoji } from '../services/ingredientUtils';
 import { useAppStore } from '../store/useAppStore';
 
 export const ScanFlowPage: React.FC = () => {
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
-  const { userId, setDetectedBuffer, detectedBuffer, addToast } = useAppStore();
+  const { setDetectedBuffer, detectedBuffer, addToast } = useAppStore();
   const [preview, setPreview] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
@@ -18,8 +18,7 @@ export const ScanFlowPage: React.FC = () => {
     setPreview(URL.createObjectURL(file));
     setIsScanning(true);
     try {
-      const upload = await api.uploadFile(file);
-      const results = await api.scanFridgeImage(upload.url, userId || 'usr_kitchen_master_01');
+      const results = await api.scanFridgeImage(file);
       setDetectedBuffer(results.map((item) => ({ ...item, emoji: getIngredientEmoji(item.name), addedAt: 'Just scanned' })));
       setIsReviewOpen(true);
     } catch {

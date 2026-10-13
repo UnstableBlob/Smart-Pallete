@@ -71,10 +71,14 @@ def update_item(
     item = get_by_id(db, item_id)
     if item is None:
         return None
+    if payload.name is not None:
+        item.name = payload.name
     if payload.quantity is not None:
         item.quantity = payload.quantity
     if payload.unit is not None:
         item.unit = payload.unit
+    if payload.category is not None:
+        item.category = payload.category
     if payload.expiry_date is not None:
         item.expiry_date = payload.expiry_date
     if payload.perishability is not None:

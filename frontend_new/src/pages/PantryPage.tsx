@@ -11,7 +11,7 @@ import {
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { sounds } from '../services/audio';
-import { getIngredientEmoji } from '../services/mockData';
+import { getIngredientEmoji } from '../services/ingredientUtils';
 import { useAppStore } from '../store/useAppStore';
 import type { CategoryType, PantryItem } from '../types';
 
@@ -24,6 +24,7 @@ export const PantryPage: React.FC = () => {
     addPantryItem,
     updatePantryItem,
     deletePantryItem,
+    addToast,
   } = useAppStore();
 
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -86,31 +87,35 @@ export const PantryPage: React.FC = () => {
     setItemExpiry(item.expiryDate || '');
   };
 
-  const handleSaveItem = (e: React.FormEvent) => {
+  const handleSaveItem = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!itemName.trim()) return;
 
     sounds.playTap();
-    if (editingItem) {
-      updatePantryItem(editingItem.id, {
-        name: itemName.trim(),
-        quantity: itemQty,
-        unit: itemUnit,
-        category: itemCategory,
-        expiryDate: itemExpiry || undefined,
-        emoji: getIngredientEmoji(itemName.trim()),
-      });
-      setEditingItem(null);
-    } else {
-      addPantryItem({
-        name: itemName.trim(),
-        quantity: itemQty,
-        unit: itemUnit,
-        category: itemCategory,
-        expiryDate: itemExpiry || undefined,
-        emoji: getIngredientEmoji(itemName.trim()),
-      });
-      setIsAddModalOpen(false);
+    try {
+      if (editingItem) {
+        await updatePantryItem(editingItem.id, {
+          name: itemName.trim(),
+          quantity: itemQty,
+          unit: itemUnit,
+          category: itemCategory,
+          expiryDate: itemExpiry || undefined,
+          emoji: getIngredientEmoji(itemName.trim()),
+        });
+        setEditingItem(null);
+      } else {
+        await addPantryItem({
+          name: itemName.trim(),
+          quantity: itemQty,
+          unit: itemUnit,
+          category: itemCategory,
+          expiryDate: itemExpiry || undefined,
+          emoji: getIngredientEmoji(itemName.trim()),
+        });
+        setIsAddModalOpen(false);
+      }
+    } catch {
+      addToast('Could not save pantry item.', 'error');
     }
   };
 

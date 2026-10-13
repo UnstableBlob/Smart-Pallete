@@ -1,9 +1,8 @@
+import { Check, ShieldAlert, Sliders, Sparkles, UserCheck } from 'lucide-react';
 import React, { useState } from 'react';
-import { useAppStore } from '../store/useAppStore';
-import { api } from '../services/api';
 import { sounds } from '../services/audio';
+import { useAppStore } from '../store/useAppStore';
 import type { ProfilePreferences } from '../types';
-import { Check, UserCheck, ShieldAlert, Sparkles, Sliders } from 'lucide-react';
 
 const DIETARY_OPTIONS = [
   { value: 'vegan', label: 'Vegan' },
@@ -15,7 +14,7 @@ const DIETARY_OPTIONS = [
 ];
 
 export const ProfilePage: React.FC = () => {
-  const { userProfile, setUserProfile, userId, addToast } = useAppStore();
+  const { userProfile, setUserProfile } = useAppStore();
 
   const [dietary, setDietary] = useState<string[]>(userProfile.dietaryRestrictions || []);
   const [spice, setSpice] = useState<number>(userProfile.spiceLevel ?? 1);
@@ -46,16 +45,8 @@ export const ProfilePage: React.FC = () => {
       theme,
     };
 
-    try {
-      // API call: PUT /api/v1/user/preferences
-      await api.savePreferences(userId || 'usr_kitchen_master_01', updatedProfile);
-      setUserProfile(updatedProfile);
-    } catch {
-      setUserProfile(updatedProfile);
-      addToast('Saved locally', 'info');
-    } finally {
-      setIsSaving(false);
-    }
+    setUserProfile(updatedProfile);
+    setIsSaving(false);
   };
 
   return (

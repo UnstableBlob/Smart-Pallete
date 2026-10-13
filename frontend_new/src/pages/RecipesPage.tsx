@@ -5,9 +5,10 @@ import {
     SlidersHorizontal,
     Soup,
 } from 'lucide-react';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FilterDrawerModal } from '../components/FilterDrawer/FilterDrawerModal';
+import { api } from '../services/api';
 import { sounds } from '../services/audio';
 import { useAppStore } from '../store/useAppStore';
 import type { FilterState, Recipe } from '../types';
@@ -21,12 +22,34 @@ export const RecipesPage: React.FC = () => {
     setActiveRecipe,
     bookmarkedRecipeIds,
     toggleBookmark,
+    pantryStock,
+    userProfile,
+    setRecipes,
+    addToast,
   } = useAppStore();
 
   const [activeTab, setActiveTab] = useState<'zero-waste' | 'quick-run'>('zero-waste');
   const [selectedChip, setSelectedChip] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (pantryStock.length === 0) {
+      setRecipes([]);
+      return;
+    }
+
+    let cancelled = false;
+    void api.fetchRecipes(pantryStock, userProfile, activeTab)
+      .then((nextRecipes) => {
+        if (!cancelled) setRecipes(nextRecipes);
+      })
+      .catch(() => {
+        if (!cancelled) addToast('Could not generate recipes from your pantry.', 'error');
+      });
+
+    return () => { cancelled = true; };
+  }, [activeTab, pantryStock, userProfile, setRecipes, addToast]);
 
   const [filterState, setFilterState] = useState<FilterState>({
     searchQuery: '',

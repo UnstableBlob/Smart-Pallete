@@ -1,10 +1,10 @@
+import { Check, Plus, RotateCcw } from 'lucide-react';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAppStore } from '../../store/useAppStore';
 import { api } from '../../services/api';
 import { sounds } from '../../services/audio';
-import { getIngredientEmoji, INGREDIENT_EMOJIS } from '../../services/mockData';
-import { Plus, Check, RotateCcw } from 'lucide-react';
+import { getIngredientEmoji, INGREDIENT_EMOJIS } from '../../services/ingredientUtils';
+import { useAppStore } from '../../store/useAppStore';
 
 interface VerificationModalProps {
   isOpen: boolean;
@@ -23,9 +23,7 @@ export const VerificationModal: React.FC<VerificationModalProps> = ({
     updateDetectedItem,
     removeDetectedItem,
     addDetectedItem,
-    pantryStock,
     setPantryStock,
-    userId,
     addToast,
   } = useAppStore();
 
@@ -79,29 +77,9 @@ export const VerificationModal: React.FC<VerificationModalProps> = ({
       sounds.playTap();
 
       // Placeholder API call: POST /api/v1/pantry/verify-and-sync
-      await api.verifyAndSyncPantry(detectedBuffer, userId || 'usr_kitchen_master_01');
-
-      // Sync verified items into pantryStock (avoiding duplicates by updating quantity or adding new)
-      const updatedStock = [...pantryStock];
-      detectedBuffer.forEach((item) => {
-        const existingIdx = updatedStock.findIndex(
-          (p) => p.name.toLowerCase() === item.name.toLowerCase()
-        );
-        if (existingIdx !== -1) {
-          updatedStock[existingIdx].quantity += item.quantity;
-        } else {
-          updatedStock.unshift({
-            ...item,
-            id: `p-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-            addedAt: 'Just scanned',
-            expiryDate:
-              item.expiryDate ||
-              new Date(Date.now() + 5 * 24 * 3600 * 1000).toISOString().split('T')[0],
-          });
-        }
-      });
-
-      setPantryStock(updatedStock);
+      await api.verifyAndSyncPantry(detectedBuffer);
+      const inventory = await api.fetchPantryInventory();
+      setPantryStock([...inventory.activeStock, ...inventory.expiringSoon]);
       addToast(`Added ${detectedBuffer.length} items to pantry inventory!`, 'success');
       onClose();
       // Route to recipes recommendations dashboard as per blueprint
@@ -114,7 +92,7 @@ export const VerificationModal: React.FC<VerificationModalProps> = ({
   };
 
   return (
-    <div id="verification-drawer-backdrop" className="modal-overlay" onClick={onClose}>
+    <div id="verification-drawer-backdrop" className="modal-overlay verification-overlay" onClick={onClose}>
       <div
         id="verification-drawer-container"
         className="bottom-sheet"

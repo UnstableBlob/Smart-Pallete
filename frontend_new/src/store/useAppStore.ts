@@ -1,12 +1,9 @@
 import { create } from 'zustand';
-import type { PantryItem, Recipe, ProfilePreferences, ToastMessage } from '../types';
-import { INITIAL_PANTRY_STOCK, INITIAL_RECIPES, getIngredientEmoji } from '../services/mockData';
+import { api } from '../services/api';
+import { getIngredientEmoji } from '../services/ingredientUtils';
+import type { PantryItem, ProfilePreferences, Recipe, ToastMessage } from '../types';
 
 interface AppState {
-  // User Authentication
-  userId: string | null;
-  setUserId: (id: string | null) => void;
-
   // Active Scan Buffer
   isScanning: boolean;
   setIsScanning: (isScanning: boolean) => void;
@@ -19,9 +16,9 @@ interface AppState {
   // Active Pantry Inventory
   pantryStock: PantryItem[];
   setPantryStock: (stock: PantryItem[]) => void;
-  addPantryItem: (item: Omit<PantryItem, 'id' | 'addedAt'>) => void;
-  updatePantryItem: (id: string, updates: Partial<PantryItem>) => void;
-  deletePantryItem: (id: string) => void;
+  addPantryItem: (item: Omit<PantryItem, 'id' | 'addedAt'>) => Promise<void>;
+  updatePantryItem: (id: string, updates: Partial<PantryItem>) => Promise<void>;
+  deletePantryItem: (id: string) => Promise<void>;
 
   // Recipes & Bookmarks
   recipes: Recipe[];
@@ -68,9 +65,6 @@ const getInitialSavedState = () => {
 const savedState = getInitialSavedState();
 
 export const useAppStore = create<AppState>((set, get) => ({
-  userId: savedState?.userId || 'usr_kitchen_master_01',
-  setUserId: (userId) => set({ userId }),
-
   isScanning: false,
   setIsScanning: (isScanning) => set({ isScanning }),
   detectedBuffer: [],
@@ -98,37 +92,30 @@ export const useAppStore = create<AppState>((set, get) => ({
       ],
     })),
 
-  pantryStock: savedState?.pantryStock || INITIAL_PANTRY_STOCK,
+  pantryStock: [],
   setPantryStock: (pantryStock) => {
     set({ pantryStock });
     persistStore();
   },
-  addPantryItem: (item) => {
-    const newItem: PantryItem = {
-      ...item,
-      id: `p-${Date.now()}`,
-      addedAt: 'Just now',
-      emoji: item.emoji || getIngredientEmoji(item.name),
-      expiryDate: item.expiryDate || new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString().split('T')[0],
-    };
-    set((state) => {
-      const nextStock = [newItem, ...state.pantryStock];
-      return { pantryStock: nextStock };
-    });
+  addPantryItem: async (item) => {
+    const savedItem = await api.addStockItem(item);
+    set((state) => ({ pantryStock: [savedItem, ...state.pantryStock] }));
     get().addToast(`Added ${item.name} to pantry`, 'success');
     persistStore();
   },
-  updatePantryItem: (id, updates) => {
+  updatePantryItem: async (id, updates) => {
+    const savedItem = await api.updateStockItem(id, updates);
     set((state) => ({
       pantryStock: state.pantryStock.map((item) =>
-        item.id === id ? { ...item, ...updates } : item
+        item.id === id ? { ...item, ...updates, id: String(savedItem.id) } : item
       ),
     }));
     get().addToast('Pantry item updated', 'info');
     persistStore();
   },
-  deletePantryItem: (id) => {
+  deletePantryItem: async (id) => {
     const itemToDelete = get().pantryStock.find((i) => i.id === id);
+    await api.deleteStockItem(id);
     set((state) => ({
       pantryStock: state.pantryStock.filter((item) => item.id !== id),
     }));
@@ -138,7 +125,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     persistStore();
   },
 
-  recipes: INITIAL_RECIPES,
+  recipes: [],
   setRecipes: (recipes) => set({ recipes }),
   bookmarkedRecipeIds: savedState?.bookmarkedRecipeIds || ['rec_101'],
   toggleBookmark: (recipeId) => {
@@ -232,7 +219,6 @@ function persistStore() {
   try {
     const state = useAppStore.getState();
     const toSave = {
-      userId: state.userId,
       pantryStock: state.pantryStock,
       bookmarkedRecipeIds: state.bookmarkedRecipeIds,
       userProfile: state.userProfile,
