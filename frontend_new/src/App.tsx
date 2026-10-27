@@ -29,17 +29,19 @@ export const App: React.FC = () => {
     <BrowserRouter>
       <div className="app-layout-wrapper">
         <Navbar />
-        <Routes>
-          {/* Section 2: App Routing & Page Map */}
-          <Route path="/" element={<ScanFlowPage />} />
-          <Route path="/scan" element={<Navigate to="/" replace />} />
-          <Route path="/recipes" element={<RecipesPage />} />
-          <Route path="/cook/:recipeId" element={<CookModePage />} />
-          <Route path="/pantry" element={<PantryPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          {/* Fallback to home */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <main className="app-main-content">
+          <Routes>
+            {/* Section 2: App Routing & Page Map */}
+            <Route path="/" element={<ScanFlowPage />} />
+            <Route path="/scan" element={<Navigate to="/" replace />} />
+            <Route path="/recipes" element={<RecipesPage />} />
+            <Route path="/cook/:recipeId" element={<CookModePage />} />
+            <Route path="/pantry" element={<PantryPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            {/* Fallback to home */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </main>
         <ToastContainer />
       </div>
     </BrowserRouter>

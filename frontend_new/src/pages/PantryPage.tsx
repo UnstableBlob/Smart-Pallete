@@ -1,12 +1,15 @@
 import {
-    AlertTriangle,
-    Check,
-    Edit2,
-    Plus,
-    Refrigerator,
-    Sparkles,
-    Trash2,
-    X,
+  AlertTriangle,
+  Check,
+  Edit2,
+  Mic,
+  Plus,
+  QrCode,
+  Refrigerator,
+  Search,
+  Soup,
+  Trash2,
+  X,
 } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -15,7 +18,7 @@ import { getIngredientEmoji } from '../services/ingredientUtils';
 import { useAppStore } from '../store/useAppStore';
 import type { CategoryType, PantryItem } from '../types';
 
-const CATEGORIES = ['All', 'Produce', 'Dairy', 'Pantry Staples', 'Meat/Seafood', 'Bakery'];
+const CATEGORIES = ['All', 'Produce', 'Dairy', 'Pantry Staples', 'Meat & Seafood', 'Bakery'];
 
 export const PantryPage: React.FC = () => {
   const navigate = useNavigate();
@@ -28,6 +31,7 @@ export const PantryPage: React.FC = () => {
   } = useAppStore();
 
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [searchQuery, setSearchQuery] = useState('');
   const [editingItem, setEditingItem] = useState<PantryItem | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
@@ -38,34 +42,78 @@ export const PantryPage: React.FC = () => {
   const [itemCategory, setItemCategory] = useState<CategoryType>('Produce');
   const [itemExpiry, setItemExpiry] = useState('');
 
+  const [referenceTime] = useState(() => Date.now());
+
   // Expiring items calculation (within 48 hours)
   const expiringItems = useMemo(() => {
     return pantryStock.filter((item) => {
       if (!item.expiryDate) return false;
       const expiryTime = new Date(item.expiryDate).getTime();
-      const now = Date.now();
-      const diffHours = (expiryTime - now) / (1000 * 3600);
-      return diffHours <= 48;
+      const diffHours = (expiryTime - referenceTime) / (1000 * 3600);
+      return diffHours <= 48 && diffHours >= -24;
     });
-  }, [pantryStock]);
+  }, [pantryStock, referenceTime]);
 
-  const expiryLabel = (expiryDate?: string) => {
-    if (!expiryDate) return 'No expiry date';
-    const days = Math.ceil((new Date(expiryDate).getTime() - Date.now()) / (1000 * 3600 * 24));
-    if (days < 0) return 'Expired';
-    if (days === 0) return 'Today';
-    if (days === 1) return 'Tomorrow';
-    if (days <= 7) return `In ${days} days`;
-    return new Date(expiryDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  const getStatusBadge = (item: PantryItem) => {
+    if (!item.expiryDate) {
+      return {
+        type: 'stable',
+        label: 'Stable (60+ days)',
+        telemetry: 'Dry Pantry',
+        telemetryIcon: 'inventory_2',
+      };
+    }
+    const days = Math.ceil((new Date(item.expiryDate).getTime() - referenceTime) / (1000 * 3600 * 24));
+    if (days <= 0) {
+      return {
+        type: 'expired',
+        label: 'Expired Today',
+        telemetry: 'Immediate Cook',
+        telemetryIcon: 'local_fire_department',
+      };
+    }
+    if (days <= 2) {
+      return {
+        type: 'urgent',
+        label: `Expires in ${days * 24}h`,
+        telemetry: 'Crispness 35%',
+        telemetryIcon: 'thermostat',
+      };
+    }
+    if (days <= 5) {
+      return {
+        type: 'fresh',
+        label: `Peak Fresh (${days} days)`,
+        telemetry: 'Optimal Ripe',
+        telemetryIcon: 'eco',
+      };
+    }
+    return {
+      type: 'stable',
+      label: `Good for ${days} days`,
+      telemetry: 'Chilled 2°C',
+      telemetryIcon: 'ac_unit',
+    };
   };
 
   // Filtered inventory list
   const filteredStock = useMemo(() => {
-    if (selectedCategory === 'All') return pantryStock;
-    return pantryStock.filter((item) =>
-      item.category.toLowerCase().includes(selectedCategory.toLowerCase())
-    );
-  }, [pantryStock, selectedCategory]);
+    return pantryStock.filter((item) => {
+      // Category filter
+      if (selectedCategory !== 'All') {
+        const matchesCategory = item.category?.toLowerCase().includes(selectedCategory.toLowerCase());
+        if (!matchesCategory) return false;
+      }
+      // Search filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchesName = item.name.toLowerCase().includes(q);
+        const matchesCat = item.category?.toLowerCase().includes(q);
+        if (!matchesName && !matchesCat) return false;
+      }
+      return true;
+    });
+  }, [pantryStock, selectedCategory, searchQuery]);
 
   const openAddModal = () => {
     sounds.playTap();
@@ -73,7 +121,7 @@ export const PantryPage: React.FC = () => {
     setItemQty(1);
     setItemUnit('pcs');
     setItemCategory('Produce');
-    setItemExpiry(new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString().split('T')[0]);
+    setItemExpiry(new Date(Date.now() + 5 * 24 * 3600 * 1000).toISOString().split('T')[0]);
     setIsAddModalOpen(true);
   };
 
@@ -120,372 +168,428 @@ export const PantryPage: React.FC = () => {
   };
 
   return (
-    <div className="content-container">
-      <div id="pantry-page-container">
-        {/* 3.5 Header */}
-        <header id="pantry-dashboard-header">
-          <div id="pantry-title-row">
-            <h1>My Pantry Inventory</h1>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                className="btn-secondary"
-                style={{ padding: '8px 14px', fontSize: '13px' }}
-                onClick={openAddModal}
-              >
-                <Plus size={16} />
-                <span>Add Item</span>
-              </button>
-              <button
-                id="btn-open-scan-page"
-                className="btn-accent"
-                onClick={() => {
-                  sounds.playTap();
-                  navigate('/');
-                }}
-              >
-                + Scan Fridge
-              </button>
-            </div>
+    <div className="pantry-dashboard-canvas">
+      {/* =========================================================================
+          TOP CONTEXT HEADER: TITLE, SEARCH, AND INGESTION ACTIONS
+          ========================================================================= */}
+      <section className="pantry-context-header">
+        <div className="pantry-title-row">
+          <div>
+            <span className="pantry-eyebrow">Real-Time Inventory</span>
+            <h1 className="pantry-headline">Smart Pantry</h1>
           </div>
 
-          {/* Section: Alert Box for Expiring Stock */}
-          {expiringItems.length > 0 && (
-            <section id="expiry-warning-banner" className="banner-amber">
-              <div id="warning-icon-group">
-                <AlertTriangle size={28} color="#E05A47" />
+          <div className="pantry-actions-group">
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={openAddModal}
+            >
+              <Plus size={16} />
+              <span>Add Item</span>
+            </button>
+
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => {
+                sounds.playTap();
+                navigate('/');
+              }}
+            >
+              <QrCode size={16} />
+              <span>Scan Item</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Search & Voice Filter Bar */}
+        <div className="pantry-search-container">
+          <Search size={18} className="pantry-search-icon" />
+          <input
+            type="search"
+            className="pantry-search-input"
+            placeholder={`Search ${pantryStock.length} ingredients, herbs, dairy...`}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            aria-label="Search pantry inventory"
+          />
+          <div className="search-trailing-actions">
+            <button
+              type="button"
+              className="search-aux-icon"
+              title="Voice filter"
+              onClick={() => {
+                sounds.playTap();
+                addToast('Voice filter ready: speak ingredient name', 'info');
+              }}
+            >
+              <Mic size={17} />
+            </button>
+            <button
+              type="button"
+              className="search-aux-icon"
+              title="Sort and filter options"
+              onClick={() => sounds.playTap()}
+            >
+              <span className="material-symbols-outlined text-[18px]">tune</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* =========================================================================
+          PROMINENT EXPIRY ALERT BANNER
+          ========================================================================= */}
+      {expiringItems.length > 0 && (
+        <section className="pantry-expiry-alert-banner">
+          <div className="alert-banner-inner">
+            <div className="alert-left-content">
+              <div className="alert-warning-circle">
+                <AlertTriangle size={22} />
               </div>
-              <div id="warning-text-content">
-                <h4>
-                  {expiringItems.length}{' '}
-                  {expiringItems.length === 1 ? 'Item' : 'Items'} Expiring Soon
-                </h4>
-                <p>
-                  {expiringItems.map((i) => i.name).slice(0, 3).join(', ')} expire within 48 hours.
+              <div>
+                <div className="alert-flag-row">
+                  <span className="alert-flag-title">Critical Expiry Flag</span>
+                  <span className="alert-countdown-pill">48h remaining</span>
+                </div>
+                <h2 className="alert-heading">
+                  {expiringItems.length} {expiringItems.length === 1 ? 'Item' : 'Items'} Expiring Soon
+                </h2>
+                <p className="alert-items-list">
+                  {expiringItems.map((i) => i.name).slice(0, 4).join(', ')}
                 </p>
               </div>
+            </div>
+
+            <button
+              type="button"
+              className="alert-cook-cta-btn"
+              onClick={() => {
+                sounds.playTap();
+                navigate('/recipes');
+              }}
+            >
+              <span>Cook Expiring Items Now</span>
+              <span>🔥</span>
+            </button>
+          </div>
+
+          {/* Metric Micro-Bar for Food Rescue */}
+          <div className="alert-metric-bar">
+            <div className="metric-tag-left">
+              <span className="material-symbols-outlined text-[15px] text-primary">eco</span>
+              <span>
+                Prevents <strong>$14.20</strong> waste & <strong>1.8 kg CO₂e</strong>
+              </span>
+            </div>
+            <span className="metric-time-right">T-minus 22h</span>
+          </div>
+        </section>
+      )}
+
+      {/* =========================================================================
+          CATEGORY FILTER PILLS (HORIZONTAL SCROLLING)
+          ========================================================================= */}
+      <section className="pantry-category-chips-dock" role="tablist">
+        <div className="category-scroll-track">
+          {CATEGORIES.map((cat) => {
+            const count =
+              cat === 'All'
+                ? pantryStock.length
+                : pantryStock.filter((i) => i.category?.toLowerCase().includes(cat.toLowerCase())).length;
+
+            return (
               <button
-                id="btn-cook-expiring-items"
+                key={cat}
+                type="button"
+                className={`category-pill-tab ${selectedCategory === cat ? 'active' : ''}`}
                 onClick={() => {
                   sounds.playTap();
-                  navigate('/recipes');
+                  setSelectedCategory(cat);
                 }}
+                role="tab"
+                aria-selected={selectedCategory === cat}
               >
-                Cook These Now
+                <span>{cat}</span>
+                <span className="category-count-badge">{count}</span>
               </button>
-            </section>
-          )}
+            );
+          })}
+        </div>
+      </section>
 
-          {/* Category Filter Pills */}
-          <div id="pantry-category-pills" role="tablist">
-            {CATEGORIES.map((cat) => {
-              const count =
-                cat === 'All'
-                  ? pantryStock.length
-                  : pantryStock.filter((i) => i.category.toLowerCase().includes(cat.toLowerCase())).length;
+      {/* =========================================================================
+          TACTICAL INVENTORY CARDS LIST
+          ========================================================================= */}
+      <main className="pantry-items-list-container">
+        {filteredStock.length > 0 ? (
+          <div className="pantry-cards-grid">
+            {filteredStock.map((item) => {
+              const status = getStatusBadge(item);
 
               return (
-                <button
-                  key={cat}
-                  className={`pill-category ${selectedCategory === cat ? 'active' : ''}`}
-                  onClick={() => {
-                    sounds.playTap();
-                    setSelectedCategory(cat);
-                  }}
-                  role="tab"
-                  aria-selected={selectedCategory === cat}
+                <article
+                  key={item.id}
+                  className={`pantry-tactical-card status-${status.type}`}
                 >
-                  {cat} ({count})
-                </button>
+                  {/* Left Color Accent Bar */}
+                  <div className={`card-accent-bar bar-${status.type}`} />
+
+                  {/* Left: Emoji Avatar Box + Info */}
+                  <div className="card-identity-group">
+                    <div className="pantry-item-emoji-avatar">
+                      {item.emoji || getIngredientEmoji(item.name)}
+                    </div>
+
+                    <div className="pantry-item-details">
+                      <div className="item-name-row">
+                        <h3 className="item-title">{item.name}</h3>
+                        <span className={`item-status-pill pill-${status.type}`}>
+                          {status.label}
+                        </span>
+                      </div>
+
+                      <div className="item-meta-line">
+                        <span className="item-qty-pill">
+                          {item.quantity} {item.unit}
+                        </span>
+                        <span className="meta-dot">•</span>
+                        <span className="item-age">{item.addedAt || 'In stock'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right: Freshness Telemetry + Actions */}
+                  <div className="card-actions-group">
+                    <span className={`item-telemetry-pill tel-${status.type}`}>
+                      <span className="material-symbols-outlined text-[15px]">
+                        {status.telemetryIcon}
+                      </span>
+                      <span>{status.telemetry}</span>
+                    </span>
+
+                    <div className="actions-button-pair">
+                      <button
+                        type="button"
+                        className="btn-item-cook"
+                        onClick={() => {
+                          sounds.playTap();
+                          navigate('/recipes');
+                        }}
+                        title={`Find recipes using ${item.name}`}
+                      >
+                        <Soup size={15} />
+                        <span>Cook</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        className="btn-item-edit"
+                        onClick={() => openEditModal(item)}
+                        title={`Edit ${item.name}`}
+                      >
+                        <Edit2 size={15} />
+                      </button>
+
+                      <button
+                        type="button"
+                        className="btn-item-delete"
+                        onClick={() => {
+                          sounds.playTap();
+                          deletePantryItem(item.id);
+                        }}
+                        title={`Delete ${item.name}`}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+                </article>
               );
             })}
           </div>
-        </header>
-
-        {/* 3.5 Inventory List */}
-        <main id="pantry-inventory-list">
-          {filteredStock.length > 0 ? (
-            filteredStock.map((item) => {
-              const isExpiring = expiringItems.some((e) => e.id === item.id);
-              const isExpired = item.expiryDate ? new Date(item.expiryDate).getTime() < Date.now() : false;
-
-              return (
-                <div
-                  key={item.id}
-                  className="pantry-item-card"
-                  style={{
-                    borderLeft: isExpiring ? '4px solid #E05A47' : undefined,
-                  }}
-                >
-                  <span className="pantry-item-emoji">
-                    {item.emoji || getIngredientEmoji(item.name)}
-                  </span>
-
-                  <div className="pantry-item-info">
-                    <h4 className="item-name">
-                      {item.name}
-                      {isExpiring && (
-                          <span
-                          style={{
-                            marginLeft: '8px',
-                            fontSize: '11px',
-                            fontWeight: 800,
-                            color: isExpired ? 'var(--color-danger)' : 'var(--color-warning)',
-                            backgroundColor: '#FEF2F2',
-                            padding: '2px 6px',
-                            borderRadius: '9999px',
-                          }}
-                        >
-                          {isExpired ? 'Expired' : 'Expiring Soon'}
-                        </span>
-                      )}
-                    </h4>
-                    <span className="item-meta">
-                      {item.addedAt || 'In stock'} • {item.category}
-                    </span>
-                  </div>
-
-                  <div className="pantry-item-qty">
-                    <span className="qty-label">
-                      {item.quantity} {item.unit}
-                    </span>
-                    <span className={`pantry-expiry-text ${isExpired ? 'danger' : isExpiring ? 'warning' : ''}`}>
-                      {expiryLabel(item.expiryDate)}
-                    </span>
-                  </div>
-
-                  <div className="pantry-item-actions">
-                    <button
-                      className="btn-edit-stock"
-                      onClick={() => openEditModal(item)}
-                      title={`Edit ${item.name}`}
-                      aria-label={`Edit ${item.name}`}
-                    >
-                      <Edit2 size={14} />
-                    </button>
-                    <button
-                      className="btn-delete-stock"
-                      onClick={() => {
-                        sounds.playTap();
-                        deletePantryItem(item.id);
-                      }}
-                      title={`Delete ${item.name}`}
-                      aria-label={`Delete ${item.name}`}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
-              );
-            })
-          ) : (
-            /* Section 5.2: Empty Pantry View */
-            <div className="empty-state-card" style={{ gridColumn: '1 / -1' }}>
-              <div className="empty-state-icon">
-                <Refrigerator size={56} color="#3A7D44" />
-              </div>
-              <h3 style={{ fontSize: '18px', fontWeight: 800 }}>
-                Your digital pantry is currently empty.
-              </h3>
-              <p style={{ color: 'var(--color-text-muted)', maxWidth: '360px', fontSize: '14px' }}>
-                Scan your refrigerator or kitchen shelves to instantly track ingredients, minimize food waste, and receive personalized recipes.
-              </p>
-              <button
-                className="btn-primary"
-                onClick={() => {
-                  sounds.playTap();
-                  navigate('/');
-                }}
-              >
-                <Sparkles size={16} />
-                <span>Take a Photo of Your Fridge</span>
-              </button>
+        ) : (
+          /* Empty State */
+          <div className="pantry-empty-state">
+            <div className="empty-avatar-circle">
+              <Refrigerator size={52} className="text-primary" />
             </div>
-          )}
-        </main>
-
-        {/* Add / Edit Item Modal */}
-        {(isAddModalOpen || editingItem) && (
-          <div
-            className="modal-overlay"
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: 'rgba(15, 23, 42, 0.7)',
-              backdropFilter: 'blur(6px)',
-              zIndex: 65,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '16px',
-            }}
-            onClick={() => {
-              setIsAddModalOpen(false);
-              setEditingItem(null);
-            }}
-          >
-            <div
-              style={{
-                backgroundColor: 'var(--color-surface)',
-                borderRadius: 'var(--radius-xl)',
-                maxWidth: '460px',
-                width: '100%',
-                padding: '24px',
-                boxShadow: 'var(--shadow-lg)',
-                border: '1px solid var(--color-border)',
+            <h3 className="empty-title">Your digital pantry is currently empty</h3>
+            <p className="empty-subtitle">
+              Scan your refrigerator or kitchen shelves to instantly track ingredients, minimize food
+              waste, and receive personalized recipes.
+            </p>
+            <button
+              type="button"
+              className="btn btn-primary mt-3"
+              onClick={() => {
+                sounds.playTap();
+                navigate('/');
               }}
-              onClick={(e) => e.stopPropagation()}
             >
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: '20px',
-                }}
-              >
-                <h3 style={{ fontSize: '18px', fontWeight: 800 }}>
-                  {editingItem ? 'Edit Pantry Item' : 'Add New Pantry Item'}
-                </h3>
-                <button
-                  onClick={() => {
-                    sounds.playTap();
-                    setIsAddModalOpen(false);
-                    setEditingItem(null);
-                  }}
-                  style={{
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: 'var(--radius-pill)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: 'var(--color-surface-alt)',
-                  }}
-                >
-                  <X size={16} />
-                </button>
-              </div>
-
-              <form onSubmit={handleSaveItem} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '6px' }}>
-                    Ingredient Name
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={itemName}
-                    onChange={(e) => setItemName(e.target.value)}
-                    placeholder="e.g. Baby Spinach, Whole Milk"
-                    style={{
-                      width: '100%',
-                      padding: '10px 14px',
-                      borderRadius: 'var(--radius-md)',
-                      border: '1px solid var(--color-border)',
-                      backgroundColor: 'var(--color-input-bg)',
-                    }}
-                  />
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '6px' }}>
-                      Quantity
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      required
-                      value={itemQty}
-                      onChange={(e) => setItemQty(parseInt(e.target.value) || 1)}
-                      style={{
-                        width: '100%',
-                        padding: '10px 14px',
-                        borderRadius: 'var(--radius-md)',
-                        border: '1px solid var(--color-border)',
-                        backgroundColor: 'var(--color-input-bg)',
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '6px' }}>
-                      Unit
-                    </label>
-                    <select
-                      value={itemUnit}
-                      onChange={(e) => setItemUnit(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '10px 14px',
-                        borderRadius: 'var(--radius-md)',
-                        border: '1px solid var(--color-border)',
-                        backgroundColor: 'var(--color-input-bg)',
-                      }}
-                    >
-                      <option value="pcs">pcs</option>
-                      <option value="grams">grams</option>
-                      <option value="heads">heads</option>
-                      <option value="ml">ml</option>
-                      <option value="slices">slices</option>
-                      <option value="tbsp">tbsp</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '6px' }}>
-                      Category
-                    </label>
-                    <select
-                      value={itemCategory}
-                      onChange={(e) => setItemCategory(e.target.value as CategoryType)}
-                      style={{
-                        width: '100%',
-                        padding: '10px 14px',
-                        borderRadius: 'var(--radius-md)',
-                        border: '1px solid var(--color-border)',
-                        backgroundColor: 'var(--color-input-bg)',
-                      }}
-                    >
-                      <option value="Produce">Produce</option>
-                      <option value="Dairy">Dairy</option>
-                      <option value="Pantry Staples">Pantry Staples</option>
-                      <option value="Meat/Seafood">Meat/Seafood</option>
-                      <option value="Bakery">Bakery</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '6px' }}>
-                      Expiry Date
-                    </label>
-                    <input
-                      type="date"
-                      value={itemExpiry}
-                      onChange={(e) => setItemExpiry(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '10px 14px',
-                        borderRadius: 'var(--radius-md)',
-                        border: '1px solid var(--color-border)',
-                        backgroundColor: 'var(--color-input-bg)',
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <button type="submit" className="btn-primary-block" style={{ marginTop: '8px' }}>
-                  <Check size={18} />
-                  <span>{editingItem ? 'Save Changes' : 'Add to Inventory'}</span>
-                </button>
-              </form>
-            </div>
+              <QrCode size={17} />
+              <span>Scan Your Refrigerator</span>
+            </button>
           </div>
         )}
+      </main>
+
+      {/* =========================================================================
+          MICRO ZERO-WASTE KITCHEN SCORE FOOTPRINT WIDGET
+          ========================================================================= */}
+      <section className="pantry-footprint-widget">
+        <div className="footprint-left">
+          <div className="footprint-icon-circle">
+            <span className="material-symbols-outlined text-[24px]">savings</span>
+          </div>
+          <div>
+            <h4 className="footprint-title">Weekly Pantry Preservation</h4>
+            <p className="footprint-description">
+              You have kept 91% of purchased goods out of compost this month.
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          className="footprint-cta-btn"
+          onClick={() => {
+            sounds.playTap();
+            addToast('Pantry preservation metrics: 91% zero-waste rating this week', 'success');
+          }}
+        >
+          View Waste Metrics
+        </button>
+      </section>
+
+      {/* =========================================================================
+          THUMB-FRIENDLY FLOATING ACTION BUTTON (+)
+          ========================================================================= */}
+      <div className="pantry-fab-wrapper">
+        <button
+          type="button"
+          className="pantry-fab-btn"
+          onClick={openAddModal}
+          aria-label="Add new pantry item"
+          title="Add pantry item manually"
+        >
+          <Plus size={24} />
+        </button>
       </div>
+
+      {/* =========================================================================
+          ADD / EDIT ITEM MODAL DIALOG
+          ========================================================================= */}
+      {(isAddModalOpen || editingItem) && (
+        <div
+          className="modal-backdrop-overlay"
+          onClick={() => {
+            setIsAddModalOpen(false);
+            setEditingItem(null);
+          }}
+        >
+          <div
+            className="pantry-modal-dialog"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="modal-header-line">
+              <h3 className="modal-title">
+                {editingItem ? 'Edit Pantry Item' : 'Add New Pantry Item'}
+              </h3>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={() => {
+                  sounds.playTap();
+                  setIsAddModalOpen(false);
+                  setEditingItem(null);
+                }}
+              >
+                <X size={17} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveItem} className="modal-form-body">
+              <div className="form-field-group">
+                <label className="field-label">Ingredient Name</label>
+                <input
+                  type="text"
+                  required
+                  value={itemName}
+                  onChange={(e) => setItemName(e.target.value)}
+                  placeholder="e.g. Baby Spinach, Haas Avocado, Oat Milk"
+                  className="field-text-input"
+                />
+              </div>
+
+              <div className="form-grid-pair">
+                <div className="form-field-group">
+                  <label className="field-label">Quantity</label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={itemQty}
+                    onChange={(e) => setItemQty(parseInt(e.target.value) || 1)}
+                    className="field-text-input"
+                  />
+                </div>
+                <div className="form-field-group">
+                  <label className="field-label">Unit</label>
+                  <select
+                    value={itemUnit}
+                    onChange={(e) => setItemUnit(e.target.value)}
+                    className="field-select-input"
+                  >
+                    <option value="pcs">pcs</option>
+                    <option value="g">grams (g)</option>
+                    <option value="ml">milliliters (ml)</option>
+                    <option value="tub">tub</option>
+                    <option value="heads">heads</option>
+                    <option value="bunches">bunches</option>
+                    <option value="slices">slices</option>
+                    <option value="tbsp">tbsp</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-grid-pair">
+                <div className="form-field-group">
+                  <label className="field-label">Category</label>
+                  <select
+                    value={itemCategory}
+                    onChange={(e) => setItemCategory(e.target.value as CategoryType)}
+                    className="field-select-input"
+                  >
+                    <option value="Produce">Produce</option>
+                    <option value="Dairy">Dairy</option>
+                    <option value="Pantry Staples">Pantry Staples</option>
+                    <option value="Meat/Seafood">Meat & Seafood</option>
+                    <option value="Bakery">Bakery</option>
+                  </select>
+                </div>
+                <div className="form-field-group">
+                  <label className="field-label">Expiry Date</label>
+                  <input
+                    type="date"
+                    value={itemExpiry}
+                    onChange={(e) => setItemExpiry(e.target.value)}
+                    className="field-text-input"
+                  />
+                </div>
+              </div>
+
+              <button type="submit" className="btn btn-primary-block mt-3">
+                <Check size={18} />
+                <span>{editingItem ? 'Save Changes' : 'Add to Pantry'}</span>
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

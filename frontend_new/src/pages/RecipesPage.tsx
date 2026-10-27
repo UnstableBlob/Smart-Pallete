@@ -1,10 +1,13 @@
 import {
-    Clock,
-    Heart,
-    Info,
-    RefreshCw,
-    SlidersHorizontal,
-    Soup,
+  CheckCircle,
+  Clock,
+  Heart,
+  Info,
+  RefreshCw,
+  Search,
+  SlidersHorizontal,
+  Soup,
+  Sparkles,
 } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -14,7 +17,13 @@ import { sounds } from '../services/audio';
 import { useAppStore } from '../store/useAppStore';
 import type { FilterState, Recipe } from '../types';
 
-const FILTER_CHIPS = ['All', 'Keto', 'Vegan', 'Gluten-Free', 'Under 20 Mins'];
+const FILTER_CHIPS = ['All', 'Zero-Waste (100%)', 'Keto', 'Vegan', 'Under 20 Mins'];
+
+const FALLBACK_RECIPE_IMAGES = [
+  'https://lh3.googleusercontent.com/aida-public/AB6AXuA9HknND4oJoH3sLHqXFbUEMTwU7RLjc6gdhBpwXUvDmI-MYx-Oq5TlfvHdCOnzoVnXeANfA0rjdi8bqpw_3ADNM62IhmgGCx0RauAoP15cOEYcva4ZWIqqJbw-uKJP0hAlO1WB7ukdPB5Qw8Er_hio0694BneeZ3al27paxrhRYLJGtAJ40aYOsKKLl5y-eRiwXnASqMciYYDHo5PinN4zogJ2ZooT0UPZAZ5yflwnKOSU8ZZvhGnh',
+  'https://lh3.googleusercontent.com/aida-public/AB6AXuD92-MTwN0GrKA8e-B5Ppg7kFm00Pf87MeIF2VnGga91fkeEPLzyQEZf1YLfBZrlpRbcIAEP6gfYD5_p6mK9ICMFqxAVE1u1XNl5HBH7I_ihfQkIay7mkA37tPZ8v9UD5Vlj-t5l4Jxk8M1vnYLBvtlsFX8KoHw7jVYkKHbZzxkj3NKn51xzkeODSXCggY9m5oX8OT-JVnu4DBeWLa-Mis4ffplqubyqzXnJJvfg15FJq_hjP29KOev',
+  'https://lh3.googleusercontent.com/aida-public/AB6AXuCCyJlQXjqLJflhgUlYxEgH2NllH1qwV9WUgK4vnwLFLp_rOvg4jQo5ypBIQE-mzqmbOkBM3gsrLd3GfmmQfd0Z3oCvBLsJXEasIJEF19Nai3mPa6_q3A-yVFKnVU1M2NfYqWVXO-DUd0FZ5id_7qAqG4i-T7Ze-r3pOJS0jclcnnx-MbvYiqX6uro3i9BczVhn4oJNsY9sW-x2asn6ytT0mEGbmSHv4AlS9fDEA6D-81gG5lsWw7lu',
+];
 
 export const RecipesPage: React.FC = () => {
   const navigate = useNavigate();
@@ -42,15 +51,16 @@ export const RecipesPage: React.FC = () => {
   useEffect(() => {
     if (pantryStock.length === 0) {
       setRecipes([]);
-      setGenerationMessage('Add ingredients to your pantry to find recipes.');
+      setGenerationMessage('Add ingredients to your pantry or scan your fridge to discover matching recipes.');
       setSuggestedIngredients([]);
       return;
     }
 
     let cancelled = false;
     setIsGenerating(true);
-    // Fetch both zero-waste and quick-run in parallel (api.fetchRecipes handles both internally)
-    void api.fetchRecipes(pantryStock, userProfile, 'zero-waste')
+
+    void api
+      .fetchRecipes(pantryStock, userProfile, 'zero-waste')
       .then((result) => {
         if (!cancelled) {
           setRecipes(result.recipes);
@@ -60,16 +70,17 @@ export const RecipesPage: React.FC = () => {
         }
       })
       .catch(() => {
-        if (!cancelled) addToast('Could not generate recipes from your pantry.', 'error');
+        if (!cancelled) addToast('Could not generate recipes from pantry.', 'error');
       })
       .finally(() => {
         if (!cancelled) setIsGenerating(false);
       });
 
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pantryStock, userProfile, regenerationKey, setRecipes, addToast]);
-
 
   const regenerateRecipes = () => {
     sounds.playTap();
@@ -107,9 +118,11 @@ export const RecipesPage: React.FC = () => {
       if (recipe.matchType !== activeTab) return false;
 
       // 2. Chip Filter
-      if (selectedChip === 'Under 20 Mins' && recipe.cookTimeMinutes > 20) {
+      if (selectedChip === 'Zero-Waste (100%)' && recipe.matchScore !== 100) {
         return false;
-      } else if (selectedChip !== 'All' && selectedChip !== 'Under 20 Mins') {
+      } else if (selectedChip === 'Under 20 Mins' && recipe.cookTimeMinutes > 20) {
+        return false;
+      } else if (selectedChip !== 'All' && selectedChip !== 'Under 20 Mins' && selectedChip !== 'Zero-Waste (100%)') {
         if (!recipe.dietaryTags.some((t) => t.toLowerCase() === selectedChip.toLowerCase())) {
           return false;
         }
@@ -150,63 +163,72 @@ export const RecipesPage: React.FC = () => {
   };
 
   return (
-    <div className="content-container">
-      <div id="recipes-page-container">
-        {/* 3.3 Dashboard Header */}
-        <header id="dashboard-header">
-          {/* Top Search Row */}
-          <div id="top-search-row">
+    <div className="recipes-catalog-page">
+      {/* =========================================================================
+          STICKY TOP SEARCH & FILTER STACK
+          ========================================================================= */}
+      <section className="recipes-sticky-search-stack" aria-label="Search and Filters">
+        <div className="search-stack-container">
+          {/* Main Search Pill Bar */}
+          <div className="search-pill-bar">
+            <Search size={18} className="search-pill-icon" />
             <input
               type="search"
-              id="recipe-search-input"
-              placeholder="Search recipes or ingredients..."
+              className="search-pill-input"
+              placeholder="Search pantry matches, dishes, greens..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               aria-label="Search recipes"
             />
             <button
-              id="btn-open-filter-drawer"
-              title="Open filters"
+              type="button"
+              className="search-action-icon-btn"
+              title="Open advanced filters"
               aria-label="Open filter drawer"
               onClick={() => {
                 sounds.playTap();
                 setIsFilterModalOpen(true);
               }}
             >
-              <SlidersHorizontal size={20} className="icon-filter" />
+              <SlidersHorizontal size={17} />
             </button>
             <button
-              id="btn-regenerate-recipes"
-              title="Regenerate recipes"
+              type="button"
+              className="search-action-icon-btn"
+              title="Regenerate recipe recommendations"
               aria-label="Regenerate recipes"
               onClick={regenerateRecipes}
               disabled={isGenerating || pantryStock.length === 0}
             >
-              <RefreshCw size={20} className={isGenerating ? 'spin' : undefined} />
+              <RefreshCw size={17} className={isGenerating ? 'spin' : ''} />
             </button>
           </div>
 
-          {/* Dietary Filter Quick Chips */}
-          <div id="horizontal-filter-scroll" role="tablist" aria-label="Dietary filters">
+          {/* Horizontal Scrolling Filter Chips */}
+          <div className="filter-chips-scroll-tray" role="tablist" aria-label="Category filter chips">
             {FILTER_CHIPS.map((chip) => (
               <button
                 key={chip}
-                className={`chip-filter ${selectedChip === chip ? 'active' : ''}`}
+                type="button"
+                className={`filter-scroll-chip ${selectedChip === chip ? 'active' : ''}`}
                 onClick={() => {
                   sounds.playTap();
                   setSelectedChip(chip);
                 }}
               >
-                {chip}
+                {chip === 'Zero-Waste (100%)' && (
+                  <span className="material-symbols-outlined text-[15px] mr-1">eco</span>
+                )}
+                <span>{chip}</span>
               </button>
             ))}
           </div>
 
-          {/* Segmented Tab Bar */}
-          <div id="segmented-tab-container" role="tablist">
+          {/* Segmented Tab Container: Zero-Waste vs Quick Run */}
+          <div className="segmented-tab-dock" role="tablist">
             <button
-              id="tab-zero-waste"
-              className={`tab-btn ${activeTab === 'zero-waste' ? 'active' : ''}`}
+              type="button"
+              className={`segmented-dock-tab ${activeTab === 'zero-waste' ? 'active' : ''}`}
               onClick={() => {
                 sounds.playTap();
                 setActiveTab('zero-waste');
@@ -214,12 +236,13 @@ export const RecipesPage: React.FC = () => {
               role="tab"
               aria-selected={activeTab === 'zero-waste'}
             >
-              Zero-Waste <span className="tab-badge-count">{zeroWasteCount} (100% Match)</span>
+              <span className="material-symbols-outlined text-[16px]">eco</span>
+              <span>Zero-Waste ({zeroWasteCount})</span>
             </button>
 
             <button
-              id="tab-quick-run"
-              className={`tab-btn ${activeTab === 'quick-run' ? 'active' : ''}`}
+              type="button"
+              className={`segmented-dock-tab ${activeTab === 'quick-run' ? 'active' : ''}`}
               onClick={() => {
                 sounds.playTap();
                 setActiveTab('quick-run');
@@ -227,53 +250,70 @@ export const RecipesPage: React.FC = () => {
               role="tab"
               aria-selected={activeTab === 'quick-run'}
             >
-              Quick Run <span className="tab-badge-count">{quickRunCount} (90%+ Match)</span>
+              <span className="material-symbols-outlined text-[16px] text-secondary">bolt</span>
+              <span>Quick Run ({quickRunCount})</span>
             </button>
           </div>
-        </header>
+        </div>
+      </section>
 
-        {/* Recipe Card Grid */}
-        <main id="recipe-card-grid">
-          {filteredRecipes.length > 0 ? (
-            <>
-              {!isGenerating && generationMessage && (!filteredRecipes.length || isLastResort) && (
-                <div className="recipe-availability-notice" style={{ gridColumn: '1 / -1' }}>
-                  <strong>{generationMessage}</strong>
-                  {suggestedIngredients.length > 0 && (
-                    <span> Consider adding: {suggestedIngredients.join(', ')}.</span>
-                  )}
-                </div>
+      {/* =========================================================================
+          RECIPE FEED LIST / HIGH DENSITY RESPONSIVE GRID
+          ========================================================================= */}
+      <main className="recipes-content-canvas">
+        {/* Availability / Last Resort Notice */}
+        {!isGenerating && generationMessage && (!filteredRecipes.length || isLastResort) && (
+          <div className="recipe-alert-banner">
+            <Info size={18} className="text-primary flex-shrink-0" />
+            <div>
+              <strong>{generationMessage}</strong>
+              {suggestedIngredients.length > 0 && (
+                <p className="mt-1 text-sm text-secondary">
+                  Consider adding: {suggestedIngredients.join(', ')}.
+                </p>
               )}
-              {filteredRecipes.map((recipe) => {
+            </div>
+          </div>
+        )}
+
+        {filteredRecipes.length > 0 ? (
+          <div className="recipes-card-grid">
+            {filteredRecipes.map((recipe, index) => {
               const isBookmarked = bookmarkedRecipeIds.includes(recipe.id);
+              const fallbackImage = FALLBACK_RECIPE_IMAGES[index % FALLBACK_RECIPE_IMAGES.length];
+              const displayImage = recipe.imageUrl || fallbackImage;
 
               return (
                 <article
                   key={recipe.id}
-                  className="recipe-card"
+                  className="organic-recipe-card"
                   tabIndex={0}
                   onClick={() => handleStartCooking(recipe)}
-                  onKeyDown={(event) => { if (event.key === 'Enter') handleStartCooking(recipe); }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleStartCooking(recipe);
+                  }}
                 >
-                  <div className="card-image-wrapper">
-                    {recipe.imageUrl ? (
-                      <img
-                        className="recipe-cover-img"
-                        src={recipe.imageUrl}
-                        alt={recipe.title}
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="recipe-cover-img recipe-cover-placeholder" aria-hidden="true">
-                        <Soup size={38} />
-                      </div>
-                    )}
+                  {/* Media Container 16:9 */}
+                  <div className="card-media-wrapper">
+                    <img
+                      src={displayImage}
+                      alt={recipe.title}
+                      className="recipe-hero-image"
+                      loading="lazy"
+                    />
 
-                    {/* Bookmark Button */}
+                    {/* Floating Top-Left Match Badge */}
+                    <div className="badge-match-score">
+                      <CheckCircle size={13} className="text-primary-dark" />
+                      <span>{recipe.matchScore}% Pantry Match</span>
+                    </div>
+
+                    {/* Floating Top-Right Heart Bookmark Button */}
                     <button
-                      className={`btn-bookmark-recipe ${isBookmarked ? 'active' : ''}`}
-                      onClick={(event) => {
-                        event.stopPropagation();
+                      type="button"
+                      className={`btn-heart-bookmark ${isBookmarked ? 'active' : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
                         sounds.playTap();
                         toggleBookmark(recipe.id);
                       }}
@@ -281,70 +321,96 @@ export const RecipesPage: React.FC = () => {
                       aria-label="Bookmark recipe"
                     >
                       <Heart
-                        size={18}
-                        fill={isBookmarked ? '#E05A47' : 'none'}
-                        color={isBookmarked ? '#E05A47' : 'currentColor'}
+                        size={17}
+                        fill={isBookmarked ? '#e85d04' : 'none'}
+                        color={isBookmarked ? '#e85d04' : 'currentColor'}
                       />
                     </button>
                   </div>
 
-                  <div className="card-body">
-                    <h2 className="card-title">{recipe.title}</h2>
+                  {/* Recipe Body Details */}
+                  <div className="card-recipe-body">
+                    <h2 className="recipe-card-title">{recipe.title}</h2>
 
-                    <div className="card-meta-row">
-                      <span><Clock size={14} /> {recipe.cookTimeMinutes} min</span>
-                      <span className="card-meta-dot" />
-                      <span>{recipe.difficulty}</span>
-                    </div>
-
-                    <p className="card-match-line">
-                      {recipe.matchScore === 100 ? <span className="badge-pantry">In your pantry</span> : `Uses ${recipe.utilizedIngredients.length} of your ingredients`}
-                    </p>
-                    <p className="card-ingredient-list">{recipe.utilizedIngredients.join(', ')}</p>
-
-                    {/* Conditional Callout for Quick Run Tab / Substitutions */}
-                    {recipe.substitutes && recipe.substitutes.length > 0 && (
-                      <div className="substitution-callout-box warning-light">
-                        <Info size={18} color="#E67E22" style={{ flexShrink: 0, marginTop: '2px' }} />
-                        <p className="substitution-text">
-                          Missing: <strong>{recipe.substitutes[0].missing}</strong>.{' '}
-                          <span className="sub-suggestion">
-                            Substitute with {recipe.substitutes[0].use}.
-                          </span>
+                    {/* Substitution Banner (for Quick Run recipes or recipes with substitutes) */}
+                    {recipe.substitutes && recipe.substitutes.length > 0 ? (
+                      <div className="substitution-alert-box">
+                        <span className="material-symbols-outlined sub-icon">swap_horiz</span>
+                        <p className="sub-text">
+                          Missing {recipe.substitutes[0].missing}? Use{' '}
+                          <strong>{recipe.substitutes[0].use}</strong> in your pantry.
                         </p>
                       </div>
-                    )}
+                    ) : recipe.matchType === 'quick-run' && (recipe.missingItems?.length ?? 0) > 0 ? (
+                      <div className="substitution-alert-box">
+                        <span className="material-symbols-outlined sub-icon">swap_horiz</span>
+                        <p className="sub-text">
+                          Needs {recipe.missingItems?.[0]} (or pantry substitute)
+                        </p>
+                      </div>
+                    ) : null}
+
+                    {/* Metadata Tags Row */}
+                    <div className="recipe-meta-chips-row">
+                      <span className="meta-chip">
+                        <Clock size={13} />
+                        <span>{recipe.cookTimeMinutes} min</span>
+                      </span>
+
+                      <span className="meta-chip">
+                        <span className="material-symbols-outlined text-[14px] text-primary">
+                          speed
+                        </span>
+                        <span>{recipe.difficulty}</span>
+                      </span>
+
+                      <span className="meta-chip">
+                        <span>🌶</span>
+                        <span>{recipe.spiceLevel}</span>
+                      </span>
+
+                      <span className="waste-metric-pill">
+                        {recipe.matchScore === 100 ? '0g Waste' : 'Root-to-stem'}
+                      </span>
+                    </div>
                   </div>
                 </article>
               );
-              })}
-            </>
-          ) : (
-            /* Section 5.2: Empty State */
-            <div className="empty-state-card" style={{ gridColumn: '1 / -1' }}>
-              <div className="empty-state-icon">
-                <Soup size={52} color="#E67E22" />
-              </div>
-              <h3 style={{ fontSize: '18px', fontWeight: 800 }}>No Matching Recipes</h3>
-              <p style={{ color: 'var(--color-text-muted)', maxWidth: '420px', fontSize: '14px' }}>
-                {generationMessage || (activeTab === 'zero-waste'
+            })}
+          </div>
+        ) : (
+          /* Empty State */
+          <div className="recipe-empty-state-card">
+            <div className="empty-icon-circle">
+              <Soup size={48} className="text-primary" />
+            </div>
+            <h3 className="empty-heading">No Matching Recipes</h3>
+            <p className="empty-description">
+              {generationMessage ||
+                (activeTab === 'zero-waste'
                   ? 'No 100% zero-waste recipes found for these exact ingredients.'
                   : 'No recipes matched your active search and filter constraints.')}
-                {suggestedIngredients.length > 0 && ` Consider adding: ${suggestedIngredients.join(', ')}.`}
-              </p>
+              {suggestedIngredients.length > 0 &&
+                ` Consider adding: ${suggestedIngredients.join(', ')}.`}
+            </p>
+
+            <div className="empty-actions-row">
               {activeTab === 'zero-waste' ? (
                 <button
-                  className="btn-primary"
+                  type="button"
+                  className="btn btn-primary"
                   onClick={() => {
                     sounds.playTap();
                     setActiveTab('quick-run');
                   }}
                 >
-                  Switch to Quick Run Tab
+                  <Sparkles size={16} />
+                  <span>Switch to Quick Run (90%+ Match)</span>
                 </button>
               ) : (
                 <button
-                  className="btn-secondary"
+                  type="button"
+                  className="btn btn-secondary"
                   onClick={() => {
                     sounds.playTap();
                     setSelectedChip('All');
@@ -356,18 +422,18 @@ export const RecipesPage: React.FC = () => {
                 </button>
               )}
             </div>
-          )}
-        </main>
+          </div>
+        )}
+      </main>
 
-        {/* Filter Drawer Modal */}
-        <FilterDrawerModal
-          isOpen={isFilterModalOpen}
-          onClose={() => setIsFilterModalOpen(false)}
-          filters={filterState}
-          onUpdateFilters={handleUpdateFilters}
-          onResetFilters={handleResetFilters}
-        />
-      </div>
+      {/* Advanced Filter Drawer Modal */}
+      <FilterDrawerModal
+        isOpen={isFilterModalOpen}
+        onClose={() => setIsFilterModalOpen(false)}
+        filters={filterState}
+        onUpdateFilters={handleUpdateFilters}
+        onResetFilters={handleResetFilters}
+      />
     </div>
   );
 };

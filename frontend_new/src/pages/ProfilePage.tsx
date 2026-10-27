@@ -1,20 +1,27 @@
-import { Check, ShieldAlert, Sliders, Sparkles, UserCheck } from 'lucide-react';
+import {
+  Check,
+  ChefHat,
+  Flame,
+  ShieldCheck,
+  Sparkles,
+  Users,
+} from 'lucide-react';
 import React, { useState } from 'react';
 import { sounds } from '../services/audio';
 import { useAppStore } from '../store/useAppStore';
 import type { ProfilePreferences } from '../types';
 
 const DIETARY_OPTIONS = [
-  { value: 'vegan', label: 'Vegan' },
-  { value: 'gluten-free', label: 'Gluten-Free' },
-  { value: 'nut-allergy', label: 'Nut Allergy' },
-  { value: 'dairy-free', label: 'Dairy-Free' },
-  { value: 'vegetarian', label: 'Vegetarian' },
-  { value: 'keto', label: 'Keto' },
+  { value: 'vegan', label: 'Vegan', emoji: '🌱' },
+  { value: 'gluten-free', label: 'Gluten-Free', emoji: '🌾' },
+  { value: 'nut-allergy', label: 'Nut Allergy', emoji: '🥜' },
+  { value: 'dairy-free', label: 'Dairy-Free', emoji: '🥛' },
+  { value: 'vegetarian', label: 'Vegetarian', emoji: '🥬' },
+  { value: 'keto', label: 'Keto', emoji: '🥑' },
 ];
 
 export const ProfilePage: React.FC = () => {
-  const { userProfile, setUserProfile } = useAppStore();
+  const { userProfile, setUserProfile, addToast } = useAppStore();
 
   const [dietary, setDietary] = useState<string[]>(userProfile.dietaryRestrictions || []);
   const [spice, setSpice] = useState<number>(userProfile.spiceLevel ?? 1);
@@ -47,81 +54,73 @@ export const ProfilePage: React.FC = () => {
 
     setUserProfile(updatedProfile);
     setIsSaving(false);
+    addToast('Taste & preference profile updated!', 'success');
   };
 
   return (
-    <div className="content-container">
-      <div id="profile-page-container">
-        {/* 3.6 Header */}
-        <header id="profile-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div
-              style={{
-                width: '40px',
-                height: '40px',
-                borderRadius: 'var(--radius-pill)',
-                backgroundColor: 'var(--color-primary-light)',
-                color: 'var(--color-primary)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <UserCheck size={22} />
+    <div className="profile-page-canvas">
+      {/* Profile Header Card */}
+      <header className="profile-header-card">
+        <div className="profile-avatar-large">
+          <ChefHat size={28} className="text-primary" />
+        </div>
+        <div>
+          <span className="profile-eyebrow">Personalized AI Preferences</span>
+          <h1 className="profile-headline">Taste & Dietary Profile</h1>
+          <p className="profile-subtext">
+            Tune multimodal zero-waste recipe recommendations and pantry telemetry to your dietary
+            constraints and kitchen routine.
+          </p>
+        </div>
+      </header>
+
+      {/* Main Settings Form */}
+      <main className="profile-form-container">
+        <form onSubmit={handleSave} className="profile-settings-form">
+          {/* Dietary Restrictions Section */}
+          <section className="settings-section-card">
+            <div className="section-title-line">
+              <ShieldCheck size={18} className="text-primary" />
+              <h2 className="section-title">Dietary Constraints & Allergies</h2>
             </div>
-            <div>
-              <h1>Taste & Preference Profile</h1>
-              <p style={{ color: 'var(--color-text-muted)', fontSize: '13px', marginTop: '2px' }}>
-                Tune multimodal AI recipe matching to your dietary needs and taste profile.
-              </p>
+            <p className="section-desc">
+              Recipes containing checked allergens or prohibited foods will be strictly excluded from
+              recommendations.
+            </p>
+
+            <div className="dietary-chips-grid">
+              {DIETARY_OPTIONS.map((option) => {
+                const isChecked = dietary.includes(option.value);
+
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={`dietary-select-chip ${isChecked ? 'active' : ''}`}
+                    onClick={() => toggleDietary(option.value)}
+                  >
+                    <span className="chip-emoji">{option.emoji}</span>
+                    <span className="chip-title">{option.label}</span>
+                    {isChecked && <Check size={15} className="chip-check-icon" />}
+                  </button>
+                );
+              })}
             </div>
-          </div>
-        </header>
+          </section>
 
-        {/* 3.6 Form Wrapper */}
-        <main id="profile-form-wrapper">
-          <form id="form-preferences" onSubmit={handleSave}>
-            {/* Section: Static Hard Constraints */}
-            <section className="pref-group-box">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <ShieldAlert size={18} color="#E05A47" />
-                <h3>Dietary Restrictions & Allergies</h3>
-              </div>
-              <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', marginBottom: '4px' }}>
-                Recipes containing selected allergens will be strictly excluded from recommendations.
-              </p>
-              <div className="checkbox-grid">
-                {DIETARY_OPTIONS.map((option) => {
-                  const isChecked = dietary.includes(option.value);
+          {/* Spice Tolerance Section */}
+          <section className="settings-section-card">
+            <div className="section-title-line">
+              <Flame size={18} className="text-secondary" />
+              <h2 className="section-title">Spice Tolerance</h2>
+            </div>
+            <p className="section-desc">
+              Adjust your preferred heat scale for matching seasonings and peppers.
+            </p>
 
-                  return (
-                    <label
-                      key={option.value}
-                      className={`checkbox-tile ${isChecked ? 'checked' : ''}`}
-                    >
-                      <input
-                        type="checkbox"
-                        name="diet"
-                        value={option.value}
-                        checked={isChecked}
-                        onChange={() => toggleDietary(option.value)}
-                      />
-                      <span>{option.label}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            </section>
-
-            {/* Section: Dynamic Preferences - Spice Tolerance */}
-            <section className="pref-group-box">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Sliders size={18} color="#E67E22" />
-                <h3>Spice Tolerance</h3>
-              </div>
+            <div className="spice-slider-wrapper">
               <input
                 type="range"
-                id="slider-spice-level"
                 min="0"
                 max="3"
                 step="1"
@@ -130,108 +129,130 @@ export const ProfilePage: React.FC = () => {
                   sounds.playTap();
                   setSpice(parseInt(e.target.value));
                 }}
-                aria-label="Spice tolerance"
+                className="spice-range-slider"
+                aria-label="Spice level slider"
               />
-              <div id="spice-labels-row">
-                <span style={{ fontWeight: spice === 0 ? 800 : 500, color: spice === 0 ? 'var(--color-primary)' : undefined }}>
-                  Mild
-                </span>
-                <span style={{ fontWeight: spice === 1 ? 800 : 500, color: spice === 1 ? 'var(--color-primary)' : undefined }}>
-                  Medium
-                </span>
-                <span style={{ fontWeight: spice === 2 ? 800 : 500, color: spice === 2 ? '#E67E22' : undefined }}>
-                  Hot
-                </span>
-                <span style={{ fontWeight: spice === 3 ? 800 : 500, color: spice === 3 ? '#E05A47' : undefined }}>
-                  Extra Hot 🌶️
-                </span>
+              <div className="spice-labels-track">
+                <span className={`spice-label ${spice === 0 ? 'active' : ''}`}>Mild</span>
+                <span className={`spice-label ${spice === 1 ? 'active' : ''}`}>Medium</span>
+                <span className={`spice-label ${spice === 2 ? 'active' : ''}`}>Hot 🔥</span>
+                <span className={`spice-label ${spice === 3 ? 'active' : ''}`}>Extra Hot 🌶️</span>
               </div>
-            </section>
+            </div>
+          </section>
 
-            {/* Section: Target Cooking Speed */}
-            <section className="pref-group-box">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Sparkles size={18} color="#3A7D44" />
-                <h3>Target Cooking Speed</h3>
-              </div>
-              <select
-                id="select-prep-speed"
-                value={speed}
-                onChange={(e) => setSpeed(e.target.value as 'quick' | 'medium' | 'leisurely')}
-                aria-label="Target cooking speed"
-              >
-                <option value="quick">Quick (&lt; 20 mins)</option>
-                <option value="medium">Standard (20-45 mins)</option>
-                <option value="leisurely">No preference</option>
-              </select>
-            </section>
-
-            {/* Section: Household Servings */}
-            <section className="pref-group-box">
-              <h3>Default Serving Size</h3>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                {[1, 2, 4, 6].map((num) => (
-                  <button
-                    key={num}
-                    type="button"
-                    className={`chip-filter ${servings === num ? 'active' : ''}`}
-                    onClick={() => {
-                      sounds.playTap();
-                      setServings(num);
-                    }}
-                    style={{ flex: 1, padding: '10px', textAlign: 'center' }}
-                  >
-                    {num} {num === 1 ? 'Person' : 'People'}
-                  </button>
-                ))}
-              </div>
-            </section>
-
-            {/* Section: Interface Theme */}
-            <section className="pref-group-box">
-              <h3>App Theme</h3>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <button
-                  type="button"
-                  className={`chip-filter ${theme === 'light' ? 'active' : ''}`}
-                  onClick={() => {
-                    sounds.playTap();
-                    setTheme('light');
-                  }}
-                  style={{ flex: 1, padding: '10px' }}
-                >
-                  ☀️ Light Kitchen
-                </button>
-                <button
-                  type="button"
-                  className={`chip-filter ${theme === 'dark' ? 'active' : ''}`}
-                  onClick={() => {
-                    sounds.playTap();
-                    setTheme('dark');
-                  }}
-                  style={{ flex: 1, padding: '10px' }}
-                >
-                  🌙 Night Cooking (Dark)
-                </button>
-              </div>
-            </section>
-
-            {/* 3.6 Form Footer */}
-            <footer id="profile-form-footer">
+          {/* Target Cooking Speed Section */}
+          <section className="settings-section-card">
+            <div className="section-title-line">
+              <Sparkles size={18} className="text-primary" />
+              <h2 className="section-title">Target Cooking Speed</h2>
+            </div>
+            <div className="speed-pills-row">
               <button
-                type="submit"
-                id="btn-save-preferences"
-                className="btn-primary"
-                disabled={isSaving}
-                style={{ width: '100%' }}
+                type="button"
+                className={`speed-pill-btn ${speed === 'quick' ? 'active' : ''}`}
+                onClick={() => {
+                  sounds.playTap();
+                  setSpeed('quick');
+                }}
               >
-                <Check size={18} />
-                <span>{isSaving ? 'Saving...' : 'Save Preferences'}</span>
+                <strong>Quick Run</strong>
+                <span>Under 20 mins</span>
               </button>
-            </footer>
-          </form>
-        </main>
-      </div>
+
+              <button
+                type="button"
+                className={`speed-pill-btn ${speed === 'medium' ? 'active' : ''}`}
+                onClick={() => {
+                  sounds.playTap();
+                  setSpeed('medium');
+                }}
+              >
+                <strong>Standard</strong>
+                <span>20 – 45 mins</span>
+              </button>
+
+              <button
+                type="button"
+                className={`speed-pill-btn ${speed === 'leisurely' ? 'active' : ''}`}
+                onClick={() => {
+                  sounds.playTap();
+                  setSpeed('leisurely');
+                }}
+              >
+                <strong>Leisurely</strong>
+                <span>No time limit</span>
+              </button>
+            </div>
+          </section>
+
+          {/* Household Servings Section */}
+          <section className="settings-section-card">
+            <div className="section-title-line">
+              <Users size={18} className="text-primary" />
+              <h2 className="section-title">Default Servings</h2>
+            </div>
+            <div className="servings-chips-row">
+              {[1, 2, 4, 6].map((num) => (
+                <button
+                  key={num}
+                  type="button"
+                  className={`serving-number-chip ${servings === num ? 'active' : ''}`}
+                  onClick={() => {
+                    sounds.playTap();
+                    setServings(num);
+                  }}
+                >
+                  <span className="serving-digit">{num}</span>
+                  <span className="serving-sub">{num === 1 ? 'Person' : 'People'}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* App Theme Section */}
+          <section className="settings-section-card">
+            <h2 className="section-title mb-2">Display Ambience</h2>
+            <div className="theme-toggle-cards-row">
+              <button
+                type="button"
+                className={`theme-ambience-card ${theme === 'light' ? 'active' : ''}`}
+                onClick={() => {
+                  sounds.playTap();
+                  setTheme('light');
+                }}
+              >
+                <div className="theme-preview light-preview" />
+                <div className="theme-card-info">
+                  <strong>☀️ Light Kitchen</strong>
+                  <span>Porcelain & botanical tones</span>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                className={`theme-ambience-card ${theme === 'dark' ? 'active' : ''}`}
+                onClick={() => {
+                  sounds.playTap();
+                  setTheme('dark');
+                }}
+              >
+                <div className="theme-preview dark-preview" />
+                <div className="theme-card-info">
+                  <strong>🌙 Night Cooking</strong>
+                  <span>Deep slate & glowing HUD</span>
+                </div>
+              </button>
+            </div>
+          </section>
+
+          {/* Save Button */}
+          <button type="submit" className="btn btn-primary-block btn-lg" disabled={isSaving}>
+            <Check size={18} />
+            <span>{isSaving ? 'Saving Preferences...' : 'Save Taste Profile'}</span>
+          </button>
+        </form>
+      </main>
     </div>
   );
 };
