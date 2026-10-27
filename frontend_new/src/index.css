@@ -210,13 +210,21 @@ ul, ol {
 /* 4. APP LAYOUT STRUCTURE: RESPONSIVE SIDEBAR + MAIN AREA */
 .app-layout-wrapper {
   display: flex;
+  flex-direction: column;
   min-height: 100vh;
   width: 100%;
+}
+
+@media (min-width: 1024px) {
+  .app-layout-wrapper {
+    flex-direction: row;
+  }
 }
 
 .app-main-content {
   flex: 1;
   min-width: 0;
+  width: 100%;
   display: flex;
   flex-direction: column;
 }
@@ -508,6 +516,8 @@ ul, ol {
   top: 0;
   z-index: 45;
   height: 58px;
+  width: 100%;
+  box-sizing: border-box;
   padding: 0 16px;
   align-items: center;
   justify-content: space-between;
@@ -743,17 +753,18 @@ ul, ol {
 
 @media (min-width: 1024px) {
   .scan-layout-grid {
-    display: grid;
-    grid-template-columns: 560px 1fr;
+    display: flex;
+    flex-direction: column;
     min-height: 100vh;
+    width: 100%;
   }
 }
 
-/* Camera Viewfinder Canvas */
+/* Camera Viewfinder Canvas (Mobile Only) */
 .camera-viewfinder-canvas {
   position: relative;
   width: 100%;
-  min-height: 640px;
+  min-height: calc(100vh - 58px);
   background-color: #0F172A;
   display: flex;
   flex-direction: column;
@@ -764,7 +775,7 @@ ul, ol {
 
 @media (min-width: 1024px) {
   .camera-viewfinder-canvas {
-    border-right: 1px solid var(--border-subtle);
+    display: none !important;
   }
 }
 
@@ -1179,7 +1190,7 @@ ul, ol {
 .viewfinder-shutter-deck {
   position: relative;
   z-index: 20;
-  padding: 16px 24px 28px;
+  padding: 16px 24px 88px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1351,6 +1362,161 @@ ul, ol {
 
 .guideline-list strong {
   color: var(--text-primary);
+}
+
+/* Enhanced Desktop Scan Ingestion Hub Elements */
+.hub-dropzone {
+  border: 2px dashed var(--border-outline-variant);
+  border-radius: var(--radius-2xl);
+  padding: 36px 24px;
+  background: var(--bg-surface-container-low);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  text-align: center;
+}
+
+.hub-dropzone:hover, .hub-dropzone.dragging {
+  border-color: var(--color-primary-500);
+  background: var(--color-primary-100);
+  transform: translateY(-2px);
+}
+
+[data-theme='dark'] .hub-dropzone.dragging {
+  background: rgba(30, 70, 40, 0.25);
+}
+
+.hub-dropzone-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-xl);
+  background: var(--color-primary-100);
+  color: var(--color-primary-500);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+[data-theme='dark'] .hub-dropzone-icon {
+  background: var(--bg-surface-container-high);
+}
+
+.hub-dropzone-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.hub-dropzone-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.hub-features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.hub-feature-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: var(--shadow-xs);
+}
+
+.hub-feature-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-100);
+  color: var(--color-primary-500);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+[data-theme='dark'] .hub-feature-icon {
+  background: var(--bg-surface-container-high);
+}
+
+.hub-feature-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.hub-feature-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.hub-scanned-preview-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-2xl);
+  padding: 24px;
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  box-shadow: var(--shadow-sm);
+}
+
+.hub-scanned-img-wrap {
+  width: 140px;
+  height: 140px;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  position: relative;
+  flex-shrink: 0;
+  border: 1px solid var(--border-subtle);
+}
+
+.hub-scanned-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hub-scanned-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hub-scanned-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hub-scanned-tags-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hub-scanned-tag-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: var(--bg-surface-container-high);
+  border-radius: var(--radius-full);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
 }
 
 /* 7. SCREEN 2: INTERACTIVE VERIFICATION SHEET (DRAWER) */
@@ -1771,6 +1937,13 @@ ul, ol {
   padding: 12px 24px;
 }
 
+@media (max-width: 1023px) {
+  .recipes-sticky-search-stack {
+    top: 58px;
+    padding: 10px 16px;
+  }
+}
+
 [data-theme='dark'] .recipes-sticky-search-stack {
   background: rgba(15, 23, 42, 0.92);
 }
@@ -1908,6 +2081,12 @@ ul, ol {
   width: 100%;
   margin: 0 auto;
   padding: 24px;
+}
+
+@media (max-width: 1023px) {
+  .recipes-content-canvas {
+    padding: 16px 14px;
+  }
 }
 
 .recipes-card-grid {
@@ -2867,6 +3046,23 @@ ul, ol {
   gap: 16px;
 }
 
+@media (max-width: 639px) {
+  .pantry-dashboard-canvas {
+    padding: 16px 14px;
+    gap: 16px;
+  }
+  .pantry-title-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .pantry-actions-group {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+  }
+}
+
 .pantry-eyebrow {
   font-size: 11px;
   font-weight: 700;
@@ -3574,6 +3770,19 @@ ul, ol {
   display: flex;
   flex-direction: column;
   gap: 24px;
+}
+
+@media (max-width: 639px) {
+  .profile-page-canvas {
+    padding: 16px 14px;
+    gap: 16px;
+  }
+  .profile-header-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px;
+  }
 }
 
 .profile-header-card {

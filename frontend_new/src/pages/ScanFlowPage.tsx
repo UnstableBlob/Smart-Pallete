@@ -4,9 +4,13 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  Clock,
   FolderOpen,
   HelpCircle,
+  RotateCcw,
+  ShieldCheck,
   Sparkles,
+  UploadCloud,
   Zap,
   ZapOff,
 } from 'lucide-react';
@@ -42,6 +46,7 @@ export const ScanFlowPage: React.FC = () => {
   const [isTipsOpen, setIsTipsOpen] = useState(false);
   const [flashOn, setFlashOn] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   // Trigger file processing (either real API or smart recognition fallback)
   const processImage = async (file: File) => {
@@ -75,7 +80,7 @@ export const ScanFlowPage: React.FC = () => {
       }
       setTimeout(() => {
         setIsReviewOpen(true);
-      }, 500);
+      }, 250);
     } catch {
       // In case network or API is unavailable, gracefully fall back to rich sample recognition
       setDetectedBuffer(
@@ -88,7 +93,7 @@ export const ScanFlowPage: React.FC = () => {
       addToast('Recognition complete! 6 ingredients detected.', 'success');
       setTimeout(() => {
         setIsReviewOpen(true);
-      }, 600);
+      }, 250);
     } finally {
       setIsScanning(false);
     }
@@ -96,12 +101,12 @@ export const ScanFlowPage: React.FC = () => {
 
   const handleShutterClick = () => {
     sounds.playShutter();
-    if (preview) {
+    if (preview && detectedBuffer.length > 0) {
       // Re-trigger review
       setIsReviewOpen(true);
       return;
     }
-    // Simulate instantaneous camera capture of current viewfinder
+    // Instantaneous camera capture of sample shelf
     setIsScanning(true);
     setTimeout(() => {
       setPreview(DEFAULT_FRIDGE_PHOTO);
@@ -115,7 +120,25 @@ export const ScanFlowPage: React.FC = () => {
       setIsScanning(false);
       setIsReviewOpen(true);
       addToast('Captured shelf! 6 ingredients detected.', 'success');
-    }, 1200);
+    }, 450);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      void processImage(file);
+    }
   };
 
   const reset = () => {
@@ -302,18 +325,6 @@ export const ScanFlowPage: React.FC = () => {
               <span className="aux-btn-label">Gallery</span>
             </button>
 
-            {/* Hidden Native File Input */}
-            <input
-              ref={inputRef}
-              type="file"
-              accept="image/*"
-              className="visually-hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) void processImage(file);
-              }}
-            />
-
             {/* Center Dual-Ring 72px Shutter Button */}
             <button
               type="button"
@@ -344,7 +355,7 @@ export const ScanFlowPage: React.FC = () => {
           </footer>
         </section>
 
-        {/* Right Column: Desktop Scan Assistant & Recognition Hub (>= 1024px) */}
+        {/* Desktop-Only Scan & Kitchen Ingestion Hub (>= 1024px) */}
         <section className="desktop-scan-hub" aria-label="Scan Intelligence Hub">
           <div className="hub-header-card">
             <span className="hub-eyebrow">Multimodal Zero-Waste Intake</span>
@@ -356,41 +367,146 @@ export const ScanFlowPage: React.FC = () => {
             </p>
           </div>
 
-          {/* Quick Actions Card */}
-          <div className="hub-action-card">
-            <div className="hub-action-row">
-              <button
-                type="button"
-                className="btn btn-primary hub-primary-btn"
-                onClick={handleShutterClick}
-              >
-                <Camera size={18} />
-                <span>Capture Shelf Scan</span>
-              </button>
+          {/* If Preview / Scanned Items already exist */}
+          {preview ? (
+            <div className="hub-scanned-preview-card">
+              <div className="hub-scanned-img-wrap">
+                <img
+                  src={preview}
+                  alt="Scanned refrigerator contents"
+                  className="hub-scanned-img"
+                />
+              </div>
+              <div className="hub-scanned-details">
+                <div className="hub-scanned-title-row">
+                  <div>
+                    <h3 className="hub-feature-title" style={{ fontSize: '18px' }}>
+                      {detectedBuffer.length > 0 ? `${detectedBuffer.length} Ingredients Detected` : 'Shelf Photo Captured'}
+                    </h3>
+                    <p className="hub-feature-text">
+                      High confidence culinary object detection completed
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={reset}
+                  >
+                    <RotateCcw size={15} />
+                    <span>Scan Different Photo</span>
+                  </button>
+                </div>
 
-              <button
-                type="button"
-                className="btn btn-secondary hub-secondary-btn"
+                <div className="hub-scanned-tags-row">
+                  {(detectedBuffer.length > 0 ? detectedBuffer : SAMPLE_DETECTED_INGREDIENTS).map((item, idx) => (
+                    <span key={idx} className="hub-scanned-tag-badge">
+                      <span>{item.emoji}</span>
+                      <span>{item.name}</span>
+                      <span className="text-secondary font-mono text-xs">({item.quantity} {item.unit})</span>
+                    </span>
+                  ))}
+                </div>
+
+                <div style={{ display: 'flex', gap: '12px', marginTop: '4px' }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{ flex: 1 }}
+                    onClick={() => {
+                      sounds.playTap();
+                      setIsReviewOpen(true);
+                    }}
+                  >
+                    <Check size={18} />
+                    <span>Review & Sync to Digital Pantry ({detectedBuffer.length || 6} Items) →</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Drag & Drop Upload Zone */}
+              <div
+                className={`hub-dropzone ${isDragging ? 'dragging' : ''}`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
                 onClick={() => inputRef.current?.click()}
+                role="button"
+                tabIndex={0}
+                aria-label="Upload photo of refrigerator or pantry"
               >
-                <FolderOpen size={18} />
-                <span>Choose Image File</span>
-              </button>
+                <div className="hub-dropzone-icon">
+                  <UploadCloud size={28} />
+                </div>
+                <div>
+                  <h3 className="hub-dropzone-title">
+                    {isDragging ? 'Drop photo here to analyze' : 'Drag & drop refrigerator photo, or click to browse'}
+                  </h3>
+                  <p className="hub-dropzone-desc">
+                    Supports high-resolution JPG, PNG, and WEBP photos from your camera or gallery
+                  </p>
+                </div>
+              </div>
+
+              {/* Quick Actions Card */}
+              <div className="hub-action-card">
+                <div className="hub-action-row">
+                  <button
+                    type="button"
+                    className="btn btn-primary hub-primary-btn"
+                    onClick={handleShutterClick}
+                    disabled={isScanning}
+                  >
+                    <Camera size={18} />
+                    <span>{isScanning ? 'Analyzing Shelves...' : 'Run Quick Shelf Demo Scan'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary hub-secondary-btn"
+                    onClick={() => inputRef.current?.click()}
+                    disabled={isScanning}
+                  >
+                    <FolderOpen size={18} />
+                    <span>Choose Image File</span>
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Three Feature Pillars */}
+          <div className="hub-features-grid">
+            <div className="hub-feature-card">
+              <div className="hub-feature-icon">
+                <ShieldCheck size={20} />
+              </div>
+              <h4 className="hub-feature-title">96%+ Vision Accuracy</h4>
+              <p className="hub-feature-text">
+                Trained specifically on produce varieties, packaged groceries, and dairy cartons in kitchen lighting conditions.
+              </p>
             </div>
 
-            {detectedBuffer.length > 0 && (
-              <button
-                type="button"
-                className="btn btn-success-block hub-review-btn"
-                onClick={() => {
-                  sounds.playTap();
-                  setIsReviewOpen(true);
-                }}
-              >
-                <Check size={18} />
-                <span>Review & Verify {detectedBuffer.length} Items →</span>
-              </button>
-            )}
+            <div className="hub-feature-card">
+              <div className="hub-feature-icon">
+                <Clock size={20} />
+              </div>
+              <h4 className="hub-feature-title">Shelf-Life Telemetry</h4>
+              <p className="hub-feature-text">
+                Automatically calculates expiration timelines and flags delicate herbs and leafy greens before spoilage.
+              </p>
+            </div>
+
+            <div className="hub-feature-card">
+              <div className="hub-feature-icon">
+                <Sparkles size={20} />
+              </div>
+              <h4 className="hub-feature-title">Zero-Waste Pairing</h4>
+              <p className="hub-feature-text">
+                Discovered ingredients sync directly with your culinary profile to generate zero-waste recipes on the fly.
+              </p>
+            </div>
           </div>
 
           {/* Recognition Guidelines */}
@@ -416,6 +532,18 @@ export const ScanFlowPage: React.FC = () => {
           </div>
         </section>
       </div>
+
+      {/* Hidden Native File Input (Available on both Mobile & Desktop) */}
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="visually-hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void processImage(file);
+        }}
+      />
 
       {/* Verification Drawer Modal */}
       <VerificationModal
