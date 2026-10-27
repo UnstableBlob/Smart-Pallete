@@ -64,7 +64,11 @@ def validate_recipe(
         if name in _COMMON_STAPLES:
             continue
         if not any(name in inv_name or inv_name in name for inv_name in inventory_map):
-            if ing.get("in_stock", True):   # recipe says it's in stock but we can't find it
+            if recipe.get("match_type") == "zero-waste":
+                errors.append(
+                    f"Zero-waste recipe requires unavailable ingredient '{ing['name']}'."
+                )
+            elif ing.get("in_stock", True):   # recipe says it's in stock but we can't find it
                 warnings.append(
                     f"Ingredient '{ing['name']}' is marked as in-stock but not found in inventory."
                 )

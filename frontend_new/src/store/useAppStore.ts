@@ -37,7 +37,7 @@ interface AppState {
 
   // User Preferences
   userProfile: ProfilePreferences;
-  setUserProfile: (profile: Partial<ProfilePreferences>) => void;
+  setUserProfile: (profile: Partial<ProfilePreferences>, showToast?: boolean) => void;
 
   // Flash & Camera options
   torchEnabled: boolean;
@@ -154,7 +154,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
   completeMeal: (_recipeId, usedIngredients) => {
-    // Deduct stock if ingredients were matched
+    // Optimistic local deduction first (fast UI update)
     const currentStock = [...get().pantryStock];
     if (usedIngredients && usedIngredients.length > 0) {
       usedIngredients.forEach((used) => {
@@ -175,9 +175,21 @@ export const useAppStore = create<AppState>((set, get) => ({
       });
       set({ pantryStock: currentStock });
     }
-    get().addToast('Meal completed! Inventory updated.', 'success');
+    get().addToast('Meal completed! Syncing pantry...', 'success');
     persistStore();
+
+    // Background re-sync with authoritative backend state
+    api.fetchPantryInventory()
+      .then((inventory) => {
+        get().setPantryStock([...inventory.activeStock, ...inventory.expiringSoon]);
+        persistStore();
+      })
+      .catch(() => {
+        // Optimistic update already applied; swallow the error silently
+        console.warn('[Smart Palette] Pantry re-sync after meal completion failed.');
+      });
   },
+
 
   userProfile: savedState?.userProfile || {
     dietaryRestrictions: ['vegan', 'gluten-free'],
@@ -186,7 +198,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     defaultServings: 2,
     theme: 'light',
   },
-  setUserProfile: (updates) => {
+  setUserProfile: (updates, showToast = true) => {
     set((state) => {
       const nextProfile = { ...state.userProfile, ...updates };
       // Apply theme class to document element
@@ -195,9 +207,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
       return { userProfile: nextProfile };
     });
-    get().addToast('Preferences saved successfully', 'success');
+    if (showToast) get().addToast('Preferences saved successfully', 'success');
     persistStore();
   },
+
 
   torchEnabled: false,
   toggleTorch: () => set((s) => ({ torchEnabled: !s.torchEnabled })),

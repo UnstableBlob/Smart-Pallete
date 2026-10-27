@@ -8,10 +8,13 @@ Startup lifecycle:
   4. Enable CORS for the frontend
 """
 import logging
+import uuid
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.config.settings import CORS_ORIGINS, DEBUG
 
@@ -60,6 +63,34 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
+
+def _error_response(request: Request, status_code: int, code: str, message: str) -> JSONResponse:
+    request_id = str(uuid.uuid4())
+    logger.error("[%s] API error %s %s %s", request_id, code, request.method, request.url.path)
+    return JSONResponse(
+        status_code=status_code,
+        content={"code": code, "message": message, "request_id": request_id},
+    )
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    detail = exc.detail if isinstance(exc.detail, dict) else {}
+    code = detail.get("code", f"HTTP_{exc.status_code}")
+    message = detail.get("message", str(exc.detail))
+    return _error_response(request, exc.status_code, code, message)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return _error_response(request, 422, "VALIDATION_ERROR", "Request validation failed.")
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    logger.exception("Unhandled API exception: %s", exc)
+    return _error_response(request, 500, "INTERNAL_SERVER_ERROR", "An unexpected server error occurred.")
 
 # ── CORS ───────────────────────────────────────────────────────────────────
 app.add_middleware(

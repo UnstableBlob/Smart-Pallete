@@ -17,6 +17,11 @@ class RecipeStep(BaseModel):
     timer_seconds: int | None = None
 
 
+class SubstituteInfo(BaseModel):
+    missing: str
+    use: str
+
+
 class GeneratedRecipe(BaseModel):
     title: str
     description: str | None = None
@@ -33,6 +38,16 @@ class GeneratedRecipe(BaseModel):
     steps: list[RecipeStep]
     missing_items: list[str] = []
     utilized_ingredients: list[str] = []
+    substitutes: list[SubstituteInfo] = []
+
+
+class RecipeGenerationResponse(BaseModel):
+    recipes: list[GeneratedRecipe] = []
+    available: bool
+    message: str
+    suggested_ingredients: list[str] = []
+    last_resort: bool = False
+
 
 
 class GenerateRecipeRequest(BaseModel):
@@ -44,9 +59,13 @@ class GenerateRecipeRequest(BaseModel):
     servings: int = Field(default=2, ge=1, le=20)
     diet: str | None = None         # "vegetarian" | "vegan" | "gluten-free" | etc.
     allergies: list[str] = []
+    spice_level: str | None = None  # "Mild" | "Medium" | "Hot" | "Extra Hot"
     max_time_minutes: int | None = None
     budget: str | None = None       # "low" | "medium" | "high"
     cuisine_preference: str | None = None
+    match_type: str | None = None   # "zero-waste" | "quick-run"
+    count: int = Field(default=1, ge=1, le=5)      # number of recipes to generate (1 to 5)
+
 
 
 class ValidateRecipeRequest(BaseModel):

@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { useAppStore } from '../store/useAppStore';
-import { sounds } from '../services/audio';
-import { api } from '../services/api';
 import confetti from 'canvas-confetti';
-import { Check, ArrowLeft, ArrowRight, Play, Pause, RotateCcw, PartyPopper } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, PartyPopper, Pause, Play, RotateCcw } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { api } from '../services/api';
+import { sounds } from '../services/audio';
+import { useAppStore } from '../store/useAppStore';
 
 export const CookModePage: React.FC = () => {
   const { recipeId } = useParams<{ recipeId: string }>();
@@ -17,6 +17,7 @@ export const CookModePage: React.FC = () => {
     nextStep,
     prevStep,
     completeMeal,
+    addToast,
   } = useAppStore();
 
   // Find target recipe if not already active
@@ -83,7 +84,21 @@ export const CookModePage: React.FC = () => {
   const handleCompleteMealAction = async () => {
     sounds.playMealComplete();
 
-    // Trigger fireworks confetti celebration
+    // Call API: POST /api/v1/pantry/deduct-consumed
+    try {
+      const consumedList = recipe.ingredients.map((ing) => ({
+        name: ing.name,
+        quantity: typeof ing.quantity === 'number' ? ing.quantity : 1,
+        unit: ing.unit,
+      }));
+      await api.completeMealDeduct(recipe.id, consumedList);
+      completeMeal(recipe.id, consumedList);
+
+    } catch {
+      addToast('Meal was not completed because pantry sync failed. Please try again.', 'error');
+      return;
+    }
+
     try {
       confetti({
         particleCount: 120,
@@ -92,19 +107,7 @@ export const CookModePage: React.FC = () => {
         colors: ['#3A7D44', '#4ADE80', '#E67E22', '#FCD34D', '#E05A47'],
       });
     } catch {
-      // Confetti fallback
-    }
-
-    // Call API: POST /api/v1/pantry/deduct-consumed
-    try {
-      const consumedList = recipe.ingredients.map((ing) => ({
-        name: ing.name,
-        quantity: typeof ing.quantity === 'number' ? ing.quantity : 1,
-      }));
-      await api.completeMealDeduct(recipe.id, consumedList);
-      completeMeal(recipe.id, consumedList);
-    } catch {
-      completeMeal(recipe.id);
+      // Celebration is optional and should not affect completion.
     }
 
     setIsCompletedModalOpen(true);

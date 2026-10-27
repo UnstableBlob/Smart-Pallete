@@ -1,7 +1,24 @@
 import type { PantryItem, ProfilePreferences, Recipe } from '../types';
 import { getIngredientCategory } from './ingredientUtils';
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// In development, the Vite proxy forwards /api → http://localhost:8000
+// In production, set VITE_API_URL to the deployed backend URL.
+const BASE_URL = import.meta.env.VITE_API_URL || '';
+
+
+export class ApiError extends Error {
+  code: string;
+  status?: number;
+  endpoint: string;
+
+  constructor(message: string, code: string, endpoint: string, status?: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.code = code;
+    this.status = status;
+    this.endpoint = endpoint;
+  }
+}
 
 export interface DetectionResult {
   id: string;
@@ -18,6 +35,17 @@ class ApiService {
     endpoint: string,
     options?: RequestInit
   ): Promise<T> {
+    const method = options?.method || 'GET';
+    const requestUrl = `${BASE_URL}${endpoint}`;
+    const startedAt = performance.now();
+    const requestBody = describeRequestBody(options?.body);
+    console.info('[Smart Palette API] CALL', {
+      method,
+      endpoint,
+      url: requestUrl,
+      body: requestBody,
+    });
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
     try {
@@ -26,7 +54,7 @@ class ApiService {
         headers.set('Content-Type', 'application/json');
       }
 
-      const res = await fetch(`${BASE_URL}${endpoint}`, {
+      const res = await fetch(requestUrl, {
         ...options,
         signal: controller.signal,
         headers,
@@ -34,11 +62,51 @@ class ApiService {
       clearTimeout(timeoutId);
 
       if (res.ok) {
-        if (res.status === 204) return undefined as T;
-        return (await res.json()) as T;
+        const responseBody = res.status === 204 ? undefined : await readResponseBody(res);
+        console.info('[Smart Palette API] RESPONSE', {
+          method,
+          endpoint,
+          status: res.status,
+          durationMs: Math.round(performance.now() - startedAt),
+          body: responseBody,
+        });
+        return responseBody as T;
       }
-      const detail = await res.text();
-      throw new Error(detail || `API error ${res.status}`);
+      const responseBody = await readResponseBody(res);
+      const errorBody = isErrorBody(responseBody) ? responseBody : {};
+      const detail = typeof errorBody.detail === 'object' ? errorBody.detail : undefined;
+      const code = errorBody.code || detail?.code || `HTTP_${res.status}`;
+      const message = errorBody.message || detail?.message || (typeof errorBody.detail === 'string' ? errorBody.detail : JSON.stringify(responseBody)) || `API error ${res.status}`;
+      const error = new ApiError(message, code, endpoint, res.status);
+      console.error('[Smart Palette API] ERROR', {
+        method,
+        endpoint,
+        status: res.status,
+        durationMs: Math.round(performance.now() - startedAt),
+        code: error.code,
+        message: error.message,
+        requestBody,
+        responseBody,
+      });
+      throw error;
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      const isAbort = error instanceof DOMException && error.name === 'AbortError';
+      const apiError = new ApiError(
+        isAbort ? 'The request timed out.' : 'Could not connect to the backend.',
+        isAbort ? 'REQUEST_TIMEOUT' : 'NETWORK_ERROR',
+        endpoint,
+      );
+      console.error('[Smart Palette API] ERROR', {
+        method,
+        endpoint,
+        durationMs: Math.round(performance.now() - startedAt),
+        code: apiError.code,
+        message: apiError.message,
+        requestBody,
+        cause: error,
+      });
+      throw apiError;
     } finally {
       clearTimeout(timeoutId);
     }
@@ -59,11 +127,13 @@ class ApiService {
         confidence: number;
         bbox?: [number, number, number, number];
       }>;
-      error?: { message?: string };
+      error?: { code?: string; message?: string };
     }>('/api/v1/vision/scan', { method: 'POST', body: formData });
 
     if (!response.success && response.error) {
-      throw new Error(response.error?.message || 'Failed to scan image');
+      const code = response.error.code || 'SCAN_FAILED';
+      console.error('[Smart Palette API]', { code, endpoint: '/api/v1/vision/scan', message: response.error.message });
+      throw new ApiError(response.error.message || 'Failed to scan image', code, '/api/v1/vision/scan');
     }
 
     return (response.ingredients || []).map((item, index) => ({
@@ -93,25 +163,62 @@ class ApiService {
   }
 
   /**
-   * Section 3.3: GET /api/v1/recipes/generate?tab=zero-waste
-   * Fetches zero-waste (100% match) or quick-run (90%+ match) recipes
+   * Section 3.3: POST /api/v1/recipes/generate
+   * Fetches zero-waste (100% match) AND quick-run (90%+ match) recipes in parallel.
+   * Returns a unified result with recipes from both match types combined.
    */
   async fetchRecipes(
     inventory: PantryItem[],
     profile: ProfilePreferences,
     tab: 'zero-waste' | 'quick-run' = 'zero-waste'
-  ): Promise<Recipe[]> {
-    const recipe = await this.safeFetch<BackendRecipe>('/api/v1/recipes/generate', {
-      method: 'POST',
-      body: JSON.stringify({
-        inventory: inventory.map(({ name, quantity, unit }) => ({ name, quantity, unit })),
-        servings: profile.defaultServings,
-        diet: profile.dietaryRestrictions[0] || undefined,
-        allergies: profile.dietaryRestrictions.filter((item) => item.includes('allergy')),
-        max_time_minutes: profile.cookingSpeed === 'quick' ? 20 : undefined,
-      }),
-    });
-    return [mapRecipe(recipe, tab)];
+  ): Promise<RecipeGenerationResult> {
+    const inventoryPayload = inventory.map(({ name, quantity, unit }) => ({ name, quantity, unit }));
+    const spiceLevelLabel = (['Mild', 'Medium', 'Hot', 'Extra Hot'] as const)[profile.spiceLevel] ?? 'Mild';
+    const maxTime = profile.cookingSpeed === 'quick' ? 20 : undefined;
+    const diet = profile.dietaryRestrictions[0] || undefined;
+    const allergies = profile.dietaryRestrictions.filter(
+      (item) => item.includes('allergy') || item === 'dairy-free'
+    );
+
+    const makeRequest = (matchType: 'zero-waste' | 'quick-run') =>
+      this.safeFetch<BackendRecipeResponse>('/api/v1/recipes/generate', {
+        method: 'POST',
+        body: JSON.stringify({
+          inventory: inventoryPayload,
+          servings: profile.defaultServings,
+          diet,
+          allergies,
+          spice_level: spiceLevelLabel,
+          max_time_minutes: maxTime,
+          match_type: matchType,
+          count: 3,
+        }),
+      }).catch((err) => {
+        console.warn(`[Smart Palette] fetchRecipes failed for tab "${matchType}":`, err);
+        return null;
+      });
+
+    // Fetch both tabs in parallel
+    const [zeroWasteResult, quickRunResult] = await Promise.all([
+      makeRequest('zero-waste'),
+      makeRequest('quick-run'),
+    ]);
+
+    // Use the requested tab's result as the primary for messages / metadata
+    const primary = tab === 'zero-waste' ? zeroWasteResult : quickRunResult;
+
+    const allRecipes: Recipe[] = [
+      ...(zeroWasteResult?.recipes?.map((r) => mapRecipe(r, 'zero-waste')) ?? []),
+      ...(quickRunResult?.recipes?.map((r) => mapRecipe(r, 'quick-run')) ?? []),
+    ];
+
+    return {
+      recipes: allRecipes,
+      available: (zeroWasteResult?.available || quickRunResult?.available) ?? false,
+      message: primary?.message ?? 'No recipes could be generated.',
+      suggestedIngredients: primary?.suggested_ingredients ?? [],
+      lastResort: primary?.last_resort ?? false,
+    };
   }
 
   /**
@@ -119,13 +226,14 @@ class ApiService {
    */
   async completeMealDeduct(
     _recipeId: string,
-    consumed: Array<{ name: string; quantity: number | string }>
+    consumed: Array<{ name: string; quantity: number | string; unit?: string }>
   ): Promise<{ success: boolean; timestamp: number }> {
     return this.safeFetch('/api/v1/pantry/deduct-consumed', {
       method: 'POST',
       body: JSON.stringify({ consumed }),
     });
   }
+
 
   /**
    * Section 3.5: GET /api/v1/pantry/inventory
@@ -173,6 +281,49 @@ class ApiService {
 
 }
 
+type ApiResponseBody = Record<string, unknown> | unknown[] | string | number | boolean | null | undefined;
+
+async function readResponseBody(response: Response): Promise<ApiResponseBody> {
+  const text = await response.text();
+  if (!text) return undefined;
+  try {
+    return JSON.parse(text) as ApiResponseBody;
+  } catch {
+    return text;
+  }
+}
+
+function isErrorBody(body: ApiResponseBody): body is {
+  code?: string;
+  message?: string;
+  detail?: string | { code?: string; message?: string };
+} {
+  return typeof body === 'object' && body !== null && !Array.isArray(body);
+}
+
+function describeRequestBody(body: BodyInit | null | undefined): ApiResponseBody {
+  if (!body) return undefined;
+  if (typeof body === 'string') {
+    try {
+      return JSON.parse(body) as ApiResponseBody;
+    } catch {
+      return body;
+    }
+  }
+  if (body instanceof FormData) {
+    return Object.fromEntries(
+      Array.from(body.entries()).map(([key, value]) => [
+        key,
+        value instanceof File
+          ? { name: value.name, type: value.type, size: value.size, lastModified: value.lastModified }
+          : value,
+      ])
+    );
+  }
+  if (body instanceof URLSearchParams) return Object.fromEntries(body.entries());
+  return `[${body.constructor?.name || 'request body'}]`;
+}
+
 interface BackendInventoryItem {
   id: number;
   name: string;
@@ -197,6 +348,22 @@ interface BackendRecipe {
   steps: Array<{ step_number: number; instruction: string; timer_seconds?: number }>;
   missing_items: string[];
   utilized_ingredients: string[];
+}
+
+interface BackendRecipeResponse {
+  recipes: BackendRecipe[];
+  available: boolean;
+  message: string;
+  suggested_ingredients: string[];
+  last_resort: boolean;
+}
+
+export interface RecipeGenerationResult {
+  recipes: Recipe[];
+  available: boolean;
+  message: string;
+  suggestedIngredients: string[];
+  lastResort: boolean;
 }
 
 function mapInventoryItem(item: BackendInventoryItem): PantryItem {

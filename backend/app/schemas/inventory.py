@@ -2,8 +2,20 @@
 Smart Palette – Pydantic schemas for inventory API.
 """
 from datetime import date
+from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+def _clean_date(v: Any) -> date | None:
+    if v is None or v == "" or (isinstance(v, str) and not v.strip()):
+        return None
+    if isinstance(v, str):
+        try:
+            return date.fromisoformat(v.strip().split("T")[0])
+        except ValueError:
+            return None
+    return v
 
 
 class InventoryItemCreate(BaseModel):
@@ -14,6 +26,11 @@ class InventoryItemCreate(BaseModel):
     expiry_date: date | None = None
     perishability: str | None = None    # "high" | "medium" | "low"
 
+    @field_validator("expiry_date", mode="before")
+    @classmethod
+    def validate_expiry(cls, v: Any) -> date | None:
+        return _clean_date(v)
+
 
 class InventoryItemUpdate(BaseModel):
     name: str | None = None
@@ -22,6 +39,11 @@ class InventoryItemUpdate(BaseModel):
     category: str | None = None
     expiry_date: date | None = None
     perishability: str | None = None
+
+    @field_validator("expiry_date", mode="before")
+    @classmethod
+    def validate_expiry(cls, v: Any) -> date | None:
+        return _clean_date(v)
 
 
 class InventoryItemResponse(BaseModel):
@@ -45,6 +67,12 @@ class ConfirmedInventoryItem(BaseModel):
     category: str | None = None
     confidence: float | None = None
     expiry_date: date | None = None
+
+    @field_validator("expiry_date", mode="before")
+    @classmethod
+    def validate_expiry(cls, v: Any) -> date | None:
+        return _clean_date(v)
+
 
 
 class ConfirmInventoryRequest(BaseModel):

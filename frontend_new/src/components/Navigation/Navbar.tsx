@@ -12,8 +12,9 @@ export const Navbar: React.FC = () => {
 
   const toggleTheme = () => {
     sounds.playTap();
-    setUserProfile({ theme: isDarkMode ? 'light' : 'dark' });
+    setUserProfile({ theme: isDarkMode ? 'light' : 'dark' }, false);
   };
+
 
   // Count expiring soon items (within 48h)
   const expiringCount = pantryStock.filter((item) => {

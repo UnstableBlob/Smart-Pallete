@@ -27,12 +27,16 @@ DIETARY_RESTRICTIONS: dict[str, list[str]] = _ingredient_config.get("dietary_res
 # ── YOLO ───────────────────────────────────────────────────────────────────
 YOLO_MODEL_NAME: str = os.getenv("YOLO_MODEL_NAME", "yolov8s-worldv2.pt")
 YOLO_MODEL_PATH: Path = MODELS_DIR / YOLO_MODEL_NAME
+if not YOLO_MODEL_PATH.exists():
+    bundled_model_path = _backend_root / YOLO_MODEL_NAME
+    if bundled_model_path.exists():
+        YOLO_MODEL_PATH = bundled_model_path
 YOLO_CONFIDENCE_THRESHOLD: float = float(os.getenv("YOLO_CONFIDENCE_THRESHOLD", "0.12"))
 YOLO_MAX_IMAGE_SIZE_MB: float = float(os.getenv("YOLO_MAX_IMAGE_SIZE_MB", "10"))
 
 # ── Groq / LLM ─────────────────────────────────────────────────────────────
 GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
-GROQ_MODEL: str = os.getenv("GROQ_MODEL", "llama-3.1-70b-versatile")
+GROQ_MODEL: str = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
 
 # ── Database ───────────────────────────────────────────────────────────────
 DATABASE_URL: str = os.getenv("DATABASE_URL", f"sqlite:///{_backend_root}/smart_palette.db")

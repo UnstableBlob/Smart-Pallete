@@ -2,6 +2,7 @@ import {
     Clock,
     Heart,
     Info,
+    RefreshCw,
     SlidersHorizontal,
     Soup,
 } from 'lucide-react';
@@ -32,24 +33,48 @@ export const RecipesPage: React.FC = () => {
   const [selectedChip, setSelectedChip] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [regenerationKey, setRegenerationKey] = useState(0);
+  const [generationMessage, setGenerationMessage] = useState('');
+  const [suggestedIngredients, setSuggestedIngredients] = useState<string[]>([]);
+  const [isLastResort, setIsLastResort] = useState(false);
 
   useEffect(() => {
     if (pantryStock.length === 0) {
       setRecipes([]);
+      setGenerationMessage('Add ingredients to your pantry to find recipes.');
+      setSuggestedIngredients([]);
       return;
     }
 
     let cancelled = false;
-    void api.fetchRecipes(pantryStock, userProfile, activeTab)
-      .then((nextRecipes) => {
-        if (!cancelled) setRecipes(nextRecipes);
+    setIsGenerating(true);
+    // Fetch both zero-waste and quick-run in parallel (api.fetchRecipes handles both internally)
+    void api.fetchRecipes(pantryStock, userProfile, 'zero-waste')
+      .then((result) => {
+        if (!cancelled) {
+          setRecipes(result.recipes);
+          setGenerationMessage(result.message);
+          setSuggestedIngredients(result.suggestedIngredients);
+          setIsLastResort(result.lastResort);
+        }
       })
       .catch(() => {
         if (!cancelled) addToast('Could not generate recipes from your pantry.', 'error');
+      })
+      .finally(() => {
+        if (!cancelled) setIsGenerating(false);
       });
 
     return () => { cancelled = true; };
-  }, [activeTab, pantryStock, userProfile, setRecipes, addToast]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pantryStock, userProfile, regenerationKey, setRecipes, addToast]);
+
+
+  const regenerateRecipes = () => {
+    sounds.playTap();
+    setRegenerationKey((current) => current + 1);
+  };
 
   const [filterState, setFilterState] = useState<FilterState>({
     searchQuery: '',
@@ -150,6 +175,15 @@ export const RecipesPage: React.FC = () => {
             >
               <SlidersHorizontal size={20} className="icon-filter" />
             </button>
+            <button
+              id="btn-regenerate-recipes"
+              title="Regenerate recipes"
+              aria-label="Regenerate recipes"
+              onClick={regenerateRecipes}
+              disabled={isGenerating || pantryStock.length === 0}
+            >
+              <RefreshCw size={20} className={isGenerating ? 'spin' : undefined} />
+            </button>
           </div>
 
           {/* Dietary Filter Quick Chips */}
@@ -201,7 +235,16 @@ export const RecipesPage: React.FC = () => {
         {/* Recipe Card Grid */}
         <main id="recipe-card-grid">
           {filteredRecipes.length > 0 ? (
-            filteredRecipes.map((recipe) => {
+            <>
+              {!isGenerating && generationMessage && (!filteredRecipes.length || isLastResort) && (
+                <div className="recipe-availability-notice" style={{ gridColumn: '1 / -1' }}>
+                  <strong>{generationMessage}</strong>
+                  {suggestedIngredients.length > 0 && (
+                    <span> Consider adding: {suggestedIngredients.join(', ')}.</span>
+                  )}
+                </div>
+              )}
+              {filteredRecipes.map((recipe) => {
               const isBookmarked = bookmarkedRecipeIds.includes(recipe.id);
 
               return (
@@ -213,12 +256,18 @@ export const RecipesPage: React.FC = () => {
                   onKeyDown={(event) => { if (event.key === 'Enter') handleStartCooking(recipe); }}
                 >
                   <div className="card-image-wrapper">
-                    <img
-                      className="recipe-cover-img"
-                      src={recipe.imageUrl}
-                      alt={recipe.title}
-                      loading="lazy"
-                    />
+                    {recipe.imageUrl ? (
+                      <img
+                        className="recipe-cover-img"
+                        src={recipe.imageUrl}
+                        alt={recipe.title}
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="recipe-cover-img recipe-cover-placeholder" aria-hidden="true">
+                        <Soup size={38} />
+                      </div>
+                    )}
 
                     {/* Bookmark Button */}
                     <button
@@ -268,7 +317,8 @@ export const RecipesPage: React.FC = () => {
                   </div>
                 </article>
               );
-            })
+              })}
+            </>
           ) : (
             /* Section 5.2: Empty State */
             <div className="empty-state-card" style={{ gridColumn: '1 / -1' }}>
@@ -276,10 +326,11 @@ export const RecipesPage: React.FC = () => {
                 <Soup size={52} color="#E67E22" />
               </div>
               <h3 style={{ fontSize: '18px', fontWeight: 800 }}>No Matching Recipes</h3>
-              <p style={{ color: 'var(--color-text-muted)', maxWidth: '360px', fontSize: '14px' }}>
-                {activeTab === 'zero-waste'
+              <p style={{ color: 'var(--color-text-muted)', maxWidth: '420px', fontSize: '14px' }}>
+                {generationMessage || (activeTab === 'zero-waste'
                   ? 'No 100% zero-waste recipes found for these exact ingredients.'
-                  : 'No recipes matched your active search and filter constraints.'}
+                  : 'No recipes matched your active search and filter constraints.')}
+                {suggestedIngredients.length > 0 && ` Consider adding: ${suggestedIngredients.join(', ')}.`}
               </p>
               {activeTab === 'zero-waste' ? (
                 <button

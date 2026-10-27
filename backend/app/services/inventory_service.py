@@ -18,7 +18,10 @@ from app.schemas.inventory import (
     InventoryItemUpdate,
 )
 
+from app.services.unit_converter import convert_deduction
+
 logger = logging.getLogger(__name__)
+
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
@@ -150,34 +153,56 @@ def consume_ingredients(
     """
     Deduct ingredient quantities after a recipe is cooked.
 
-    consumed: [{name: str, quantity: float}]
+    consumed: [{name: str, quantity: float, unit?: str}]
     Returns a summary of updated items.
     """
     updated: list[str] = []
     not_found: list[str] = []
 
     for entry in consumed:
-        name = entry.get("name", "")
+        name = entry.get("name", "").strip()
+        if not name:
+            continue
         qty = float(entry.get("quantity", 0))
+        unit = entry.get("unit")
 
+        # Fuzzy or exact match against pantry inventory
         item = (
             db.query(InventoryItem)
-            .filter(InventoryItem.name.ilike(name))
+            .filter(InventoryItem.name.ilike(f"%{name}%") | InventoryItem.name.ilike(name))
             .first()
         )
+        if item is None:
+            # Try inverse match
+            all_items = db.query(InventoryItem).all()
+            for cand in all_items:
+                if cand.name.lower() in name.lower() or name.lower() in cand.name.lower():
+                    item = cand
+                    break
+
         if item is None:
             not_found.append(name)
             continue
 
-        item.quantity = max(0.0, item.quantity - qty)
+        # Convert deduction to matching pantry stock units
+        deduct_amount = convert_deduction(
+            item_name=item.name,
+            consumed_qty=qty,
+            consumed_unit=unit,
+            inventory_unit=item.unit,
+        )
+
+        new_qty = max(0.0, round(item.quantity - deduct_amount, 2))
+        item.quantity = new_qty
         db.commit()
-        updated.append(f"{name}: {item.quantity} {item.unit} remaining")
+        updated.append(f"{item.name}: {item.quantity} {item.unit} remaining")
 
     return {
         "success": True,
         "updated": updated,
         "not_found": not_found,
     }
+
 
 
 # ── Zero-waste priority ────────────────────────────────────────────────────
